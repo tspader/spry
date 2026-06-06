@@ -1,5 +1,5 @@
-import { mount } from "./host.ts";
-import { domBackend } from "./dom-backend.ts";
+import { mount } from "../../src/host/web/host.ts";
+import { domBackend } from "../../src/backend/web/dom-backend.ts";
 
 const root = document.getElementById("app");
 if (!root) throw new Error("missing #app mount point");

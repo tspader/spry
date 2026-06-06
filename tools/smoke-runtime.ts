@@ -1,7 +1,7 @@
-import { makeWasiShim } from "../src/web-host/wasi-shim.js";
+import { makeWasiShim } from "../src/host/web/wasi-shim.js";
 
 const wasmPath = new URL("../.cache/runtime.wasm", import.meta.url);
-const treePath = new URL("../abi/tree.example.json", import.meta.url);
+const treePath = new URL("../example/ui/tree.json", import.meta.url);
 
 const bytes = await Bun.file(wasmPath).arrayBuffer();
 const tree = await Bun.file(treePath).text();

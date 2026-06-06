@@ -1,5 +1,5 @@
-const abiPath = new URL("../abi/abi.h", import.meta.url);
-const outPath = new URL("../abi/abi.gen.ts", import.meta.url);
+const abiPath = new URL("../src/abi/abi.h", import.meta.url);
+const outPath = new URL("../src/abi/abi.gen.ts", import.meta.url);
 
 const src = await Bun.file(abiPath).text();
 
@@ -30,4 +30,4 @@ const lines = [
 ];
 
 await Bun.write(outPath, lines.join("\n"));
-console.log(`gen-abi: wrote ${consts.length} constants to abi/abi.gen.ts`);
+console.log(`gen-abi: wrote ${consts.length} constants to src/abi/abi.gen.ts`);

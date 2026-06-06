@@ -1,10 +1,10 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 
 const root = new URL("../../", import.meta.url);
 const webDir = new URL("build/web/", root);
-const treeFile = new URL("abi/tree.example.json", root);
+const treeFile = new URL("example/ui/tree.json", root);
 
-const serve = (url: URL, contentType: string) => async (c: { notFound: () => Response }) => {
+const serve = (url: URL, contentType: string) => async (c: Context) => {
   const f = Bun.file(url);
   if (!(await f.exists())) return c.notFound();
   return new Response(f, { headers: { "content-type": contentType } });

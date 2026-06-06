@@ -1,4 +1,4 @@
-import type { Backend } from "./backend.ts";
+import type { Backend } from "../backend.ts";
 import * as abi from "../../abi/abi.gen.ts";
 
 const ALIGN: Record<number, string> = {

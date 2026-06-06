@@ -1,4 +1,4 @@
-import type { Backend } from "./backend.ts";
+import type { Backend } from "../../backend/backend.ts";
 import { makeWasiShim } from "./wasi-shim.js";
 
 export interface Mount {
