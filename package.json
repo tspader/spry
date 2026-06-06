@@ -1,0 +1,24 @@
+{
+  "name": "demo",
+  "private": true,
+  "packageManager": "bun@1.3.8",
+  "scripts": {
+    "build": "bun run tools/build.ts all",
+    "web": "bun --cwd src/web-app dev",
+    "typecheck": "bun turbo run typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "turbo": "^2.8.10",
+    "typescript": "catalog:"
+  },
+  "workspaces": {
+    "packages": ["abi", "src/web-host", "src/web-app", "tools"],
+    "catalog": {
+      "@types/bun": "latest",
+      "typescript": "^5",
+      "hono": "^4.11.5",
+      "zod": "^4.4.3"
+    }
+  }
+}

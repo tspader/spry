@@ -1,0 +1,25 @@
+// Generated from abi/abi.h by tools/gen-abi.ts. Do not edit.
+export const HOST_CAP_ELEMENT = 1;
+export const HOST_CAP_TEXT = 2;
+export const HOST_CAP_FLEX = 4;
+export const HOST_CAP_LINK = 8;
+export const EL_BOX = 0;
+export const EL_TEXT = 1;
+export const EL_LINK = 2;
+export const ATTR_DIRECTION = 0;
+export const ATTR_GAP = 1;
+export const ATTR_PADDING = 2;
+export const ATTR_ALIGN = 3;
+export const ATTR_JUSTIFY = 4;
+export const DIR_ROW = 0;
+export const DIR_COLUMN = 1;
+export const ALIGN_START = 0;
+export const ALIGN_CENTER = 1;
+export const ALIGN_END = 2;
+export const ALIGN_STRETCH = 3;
+export const JUSTIFY_START = 0;
+export const JUSTIFY_CENTER = 1;
+export const JUSTIFY_END = 2;
+export const JUSTIFY_BETWEEN = 3;
+export const SATTR_TEXT = 0;
+export const SATTR_HREF = 1;

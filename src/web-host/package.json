@@ -1,0 +1,13 @@
+{
+  "name": "@demo/web-host",
+  "type": "module",
+  "private": true,
+  "main": "host.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

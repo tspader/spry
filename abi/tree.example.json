@@ -1,0 +1,32 @@
+{
+  "kind": "box",
+  "props": { "direction": "column", "gap": 16, "padding": 24, "align": "stretch" },
+  "children": [
+    {
+      "kind": "box",
+      "props": { "direction": "row", "gap": 12, "justify": "between" },
+      "children": [
+        { "kind": "text", "props": { "text": "Left" } },
+        { "kind": "text", "props": { "text": "Middle" } },
+        { "kind": "text", "props": { "text": "Right" } }
+      ]
+    },
+    {
+      "kind": "box",
+      "props": { "direction": "column", "gap": 6, "padding": 12 },
+      "children": [
+        { "kind": "text", "props": { "text": "Item one" } },
+        { "kind": "text", "props": { "text": "Item two" } },
+        { "kind": "text", "props": { "text": "Item three" } }
+      ]
+    },
+    {
+      "kind": "box",
+      "props": { "direction": "row", "gap": 8, "align": "center" },
+      "children": [
+        { "kind": "text", "props": { "text": "A link:" } },
+        { "kind": "link", "props": { "text": "hypermedia", "href": "https://hypermedia.systems" } }
+      ]
+    }
+  ]
+}

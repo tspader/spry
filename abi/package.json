@@ -1,0 +1,19 @@
+{
+  "name": "@demo/abi",
+  "type": "module",
+  "private": true,
+  "main": "schema.ts",
+  "exports": {
+    "./schema": "./schema.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
