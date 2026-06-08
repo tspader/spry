@@ -1,0 +1,10 @@
+{
+  "name": "@spry/example-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "spry": "workspace:*",
+    "hono": "^4.11.5"
+  }
+}

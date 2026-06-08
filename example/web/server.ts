@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 
 const root = new URL("../../", import.meta.url);
-const webDir = new URL("build/web/", root);
+const webDir = new URL(".build/store/web/example/", root);
 const treeFile = new URL("example/ui/tree.json", root);
 
 const serve = (url: URL, contentType: string) => async (c: Context) => {

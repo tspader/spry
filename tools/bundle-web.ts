@@ -1,12 +1,11 @@
 import { $ } from "bun";
 
-// Bundles the web host into build/web/. Run from the repo root (the Makefile
-// invokes it that way); paths below are cwd-relative.
-await $`mkdir -p build/web`;
+const outDir = ".build/store/web/example";
+await $`mkdir -p ${outDir}`;
 
 const out = await Bun.build({
   entrypoints: ["example/web/main.ts"],
-  outdir: "build/web",
+  outdir: outDir,
   target: "browser",
 });
 if (!out.success) {
@@ -14,7 +13,6 @@ if (!out.success) {
   throw new Error("web bundle failed");
 }
 
-await $`mv build/web/main.js build/web/host.bundle.js`;
-await $`cp example/web/index.html build/web/index.html`;
-await $`cp .cache/runtime.wasm build/web/runtime.wasm`;
+await $`mv ${outDir}/main.js ${outDir}/host.bundle.js`;
+await $`cp example/web/index.html ${outDir}/index.html`;
 console.log("bundle-web: done");

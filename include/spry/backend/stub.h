@@ -2,7 +2,7 @@
 #define STUB_BACKEND_H
 
 #include "sp.h"
-#include "backend.h"
+#include "spry/backend/backend.h"
 
 backend_t stub_backend_make(sp_mem_t mem);
 

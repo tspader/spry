@@ -1,5 +1,5 @@
-import type { Backend, HostIface } from "../backend.ts";
-import * as abi from "../../abi/abi.gen.ts";
+import type { Backend, HostIface } from "spry/backend";
+import * as abi from "spry/abi";
 
 const ALIGN: Record<number, string> = {
   [abi.ALIGN_START]: "flex-start",

@@ -2,7 +2,7 @@
 #define WASM_HOST_H
 
 #include "sp.h"
-#include "backend.h"
+#include "spry/backend/backend.h"
 
 typedef struct wasm_host wasm_host_t;
 

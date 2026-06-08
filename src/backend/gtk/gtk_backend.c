@@ -1,8 +1,8 @@
 #include <gtk/gtk.h>
 #include "sp.h"
-#include "abi.h"
-#include "backend.h"
-#include "gtk_backend.h"
+#include "spry/abi.h"
+#include "spry/backend/backend.h"
+#include "spry/backend/gtk.h"
 
 typedef struct {
   GtkWindow* window;

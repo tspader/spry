@@ -1,9 +1,8 @@
 #define SP_IMPLEMENTATION
 #include "sp.h"
 #include "wasm.h"
-#include "abi.h"
-#include "backend.h"
-#include "wasm_host.h"
+#include "spry/backend/backend.h"
+#include "spry/host.h"
 
 struct wasm_host {
   sp_mem_t mem;

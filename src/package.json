@@ -1,0 +1,15 @@
+{
+  "name": "spry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./host/web": "./host/web/host.ts",
+    "./backend": "./backend/backend.ts",
+    "./backend/web": "./backend/web/dom-backend.ts",
+    "./abi": "./abi/abi.gen.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

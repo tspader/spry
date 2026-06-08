@@ -1,7 +1,7 @@
 #include <gtk/gtk.h>
 #include "sp.h"
-#include "wasm_host.h"
-#include "gtk_backend.h"
+#include "spry/host.h"
+#include "spry/backend/gtk.h"
 
 typedef struct {
   sp_mem_t mem;
@@ -50,7 +50,7 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
   gtk_window_present(GTK_WINDOW(window));
 }
 
-int main(int argc, char** argv) {
+s32 main(s32 argc, c8** argv) {
   if (argc < 3) {
     sp_log("usage: native <runtime.wasm> <tree.json>");
     return 1;

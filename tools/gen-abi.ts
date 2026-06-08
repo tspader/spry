@@ -1,4 +1,4 @@
-const abiPath = new URL("../src/abi/abi.h", import.meta.url);
+const abiPath = new URL("../include/spry/abi.h", import.meta.url);
 const outPath = new URL("../src/abi/abi.gen.ts", import.meta.url);
 
 const src = await Bun.file(abiPath).text();

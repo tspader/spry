@@ -1,6 +1,6 @@
 #include "sp.h"
-#include "wasm_host.h"
-#include "stub_backend.h"
+#include "spry/host.h"
+#include "spry/backend/stub.h"
 
 int main(int argc, char** argv) {
   if (argc < 3) {

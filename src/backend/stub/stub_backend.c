@@ -1,7 +1,7 @@
 #include "sp.h"
-#include "abi.h"
-#include "backend.h"
-#include "stub_backend.h"
+#include "spry/abi.h"
+#include "spry/backend/backend.h"
+#include "spry/backend/stub.h"
 
 typedef struct { u32 next_id; } stub_t;
 

@@ -2,7 +2,7 @@
 #include "sp.h"
 
 #define ABI_RUNTIME
-#include "abi.h"
+#include "spry/abi.h"
 
 #include "json.h"
 

@@ -1,22 +1,19 @@
 {
-  "name": "demo",
+  "name": "spry-monorepo",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.8",
+  "workspaces": [
+    "src",
+    "example/web"
+  ],
   "scripts": {
     "build": "make all",
-    "build:abi": "make abi",
-    "build:wasm": "make wasm",
-    "build:web": "make web",
-    "build:native": "make native",
-    "web": "make web && bun run example/web/server.ts",
-    "native": "make native && build/gtk/app .cache/runtime.wasm example/ui/tree.json",
-    "smoke": "make smoke && .cache/native-smoke .cache/runtime.wasm example/ui/tree.json",
+    "web": "make all && bun run example/web/server.ts",
+    "native": "make all && ./store/gtk/app .build/store/web/example/runtime.wasm example/ui/tree.json",
+    "smoke": "make all && .build/store/test/native-smoke .build/store/web/example/runtime.wasm example/ui/tree.json",
+    "test:yyjson": "make all && .build/store/test/yyjson-smoke && bun run tools/run-yyjson-wasm.ts",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "hono": "^4.11.5",
-    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -1,4 +1,4 @@
-import type { Backend, HostIface } from "../../backend/backend.ts";
+import type { Backend, HostIface } from "spry/backend";
 import { makeWasiShim } from "./wasi-shim.js";
 
 export interface Mount {

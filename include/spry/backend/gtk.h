@@ -3,7 +3,7 @@
 
 #include <gtk/gtk.h>
 #include "sp.h"
-#include "backend.h"
+#include "spry/backend/backend.h"
 
 typedef sp_str_t (*gtk_request_fn_t)(void* ctx, sp_str_t action, sp_str_t body);
 
