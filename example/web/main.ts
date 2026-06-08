@@ -4,8 +4,7 @@ import { domBackend } from "../../src/backend/web/dom-backend.ts";
 const root = document.getElementById("app");
 if (!root) throw new Error("missing #app mount point");
 
-const backend = domBackend(root);
-const instance = await mount("/runtime.wasm", backend);
+const instance = await mount("/runtime.wasm", (iface) => domBackend(root, iface));
 
 const tree = await fetch("/tree").then((r) => r.text());
 const rc = instance.render(tree);

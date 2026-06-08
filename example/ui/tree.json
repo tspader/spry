@@ -27,6 +27,26 @@
         { "kind": "text", "props": { "text": "A link:" } },
         { "kind": "link", "props": { "text": "hypermedia", "href": "https://hypermedia.systems" } }
       ]
+    },
+    {
+      "kind": "box",
+      "props": { "direction": "row", "gap": 8, "align": "center" },
+      "children": [
+        { "kind": "input", "props": { "name": "name", "placeholder": "your name" } },
+        {
+          "kind": "button",
+          "props": { "text": "Greet" },
+          "on": { "event": "click", "action": "/api/greet", "target": "result", "swap": "inner" }
+        }
+      ]
+    },
+    {
+      "kind": "box",
+      "id": "result",
+      "props": { "direction": "row", "gap": 8 },
+      "children": [
+        { "kind": "text", "props": { "text": "(greeting appears here)" } }
+      ]
     }
   ]
 }

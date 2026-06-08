@@ -1,4 +1,4 @@
-import type { Backend } from "../backend.ts";
+import type { Backend, HostIface } from "../backend.ts";
 import * as abi from "../../abi/abi.gen.ts";
 
 const ALIGN: Record<number, string> = {
@@ -15,9 +15,16 @@ const JUSTIFY: Record<number, string> = {
   [abi.JUSTIFY_BETWEEN]: "space-between",
 };
 
-export function domBackend(root: HTMLElement): Backend<HTMLElement> {
+const EVENT_NAME: Record<number, string> = {
+  [abi.EVENT_CLICK]: "click",
+  [abi.EVENT_SUBMIT]: "submit",
+};
+
+export function domBackend(root: HTMLElement, iface: HostIface): Backend<HTMLElement> {
   return {
-    capabilities: () => abi.HOST_CAP_ELEMENT | abi.HOST_CAP_TEXT | abi.HOST_CAP_FLEX | abi.HOST_CAP_LINK,
+    capabilities: () =>
+      abi.HOST_CAP_ELEMENT | abi.HOST_CAP_TEXT | abi.HOST_CAP_FLEX | abi.HOST_CAP_LINK |
+      abi.HOST_CAP_INPUT | abi.HOST_CAP_EVENTS | abi.HOST_CAP_SUBMIT,
 
     createElement(kind) {
       switch (kind) {
@@ -30,6 +37,10 @@ export function domBackend(root: HTMLElement): Backend<HTMLElement> {
           return document.createElement("span");
         case abi.EL_LINK:
           return document.createElement("a");
+        case abi.EL_INPUT:
+          return document.createElement("input");
+        case abi.EL_BUTTON:
+          return document.createElement("button");
         default:
           throw new Error(`dom-backend: unknown element kind ${kind}`);
       }
@@ -63,6 +74,15 @@ export function domBackend(root: HTMLElement): Backend<HTMLElement> {
         case abi.SATTR_HREF:
           (node as HTMLAnchorElement).href = value;
           break;
+        case abi.SATTR_VALUE:
+          (node as HTMLInputElement).value = value;
+          break;
+        case abi.SATTR_NAME:
+          (node as HTMLInputElement).name = value;
+          break;
+        case abi.SATTR_PLACEHOLDER:
+          (node as HTMLInputElement).placeholder = value;
+          break;
       }
     },
 
@@ -72,6 +92,33 @@ export function domBackend(root: HTMLElement): Backend<HTMLElement> {
 
     setRoot(node) {
       root.replaceChildren(node);
+    },
+
+    onEvent(node, event, token) {
+      const name = EVENT_NAME[event] ?? "click";
+      node.addEventListener(name, (e) => {
+        e.preventDefault();
+        iface.dispatch(token);
+      });
+    },
+
+    submit(token, action, body) {
+      fetch(action, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+      })
+        .then((r) => r.text())
+        .then((json) => iface.deliver(token, json))
+        .catch((err) => console.error("submit failed", err));
+    },
+
+    clearChildren(node) {
+      node.replaceChildren();
+    },
+
+    getValue(node) {
+      return (node as HTMLInputElement).value ?? "";
     },
 
     fatal(message) {

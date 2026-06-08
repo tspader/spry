@@ -37,6 +37,29 @@ static void stub_set_root(void* self, void* node) {
   sp_log("set_root #{}", sp_fmt_int((s64)(u64)node));
 }
 
+static void stub_on_event(void* self, void* node, u32 event, u32 token) {
+  (void)self;
+  sp_log("on_event #{} event={} token={}", sp_fmt_int((s64)(u64)node), sp_fmt_int(event), sp_fmt_int(token));
+}
+
+static void stub_submit(void* self, u32 token, sp_str_t url, sp_str_t body) {
+  (void)self;
+  sp_log("submit token={} url=\"{}\" body=\"{}\"", sp_fmt_int(token), sp_fmt_str(url), sp_fmt_str(body));
+}
+
+static void stub_clear_children(void* self, void* node) {
+  (void)self;
+  sp_log("clear_children #{}", sp_fmt_int((s64)(u64)node));
+}
+
+static u32 stub_get_value(void* self, void* node, c8* out, u32 cap) {
+  (void)self;
+  (void)node;
+  (void)out;
+  (void)cap;
+  return 0;
+}
+
 static void stub_fatal(void* self, sp_str_t message) {
   (void)self;
   sp_log("FATAL: {}", sp_fmt_str(message));
@@ -53,6 +76,10 @@ backend_t stub_backend_make(sp_mem_t mem) {
     .set_attr_str = stub_set_attr_str,
     .append_child = stub_append,
     .set_root = stub_set_root,
+    .on_event = stub_on_event,
+    .submit = stub_submit,
+    .clear_children = stub_clear_children,
+    .get_value = stub_get_value,
     .fatal = stub_fatal,
   };
 }
