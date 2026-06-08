@@ -34,6 +34,14 @@ add_custom_command(
   VERBATIM)
 add_custom_target(abi DEPENDS ${ROOT}/src/abi/abi.gen.ts)
 
+add_custom_command(
+  OUTPUT ${ROOT}/src/abi/ui.gen.h
+  COMMAND bun run ${ROOT}/tools/gen-ast.ts
+  DEPENDS ${ROOT}/src/abi/ui.jtd.json ${ROOT}/tools/gen-ast.ts ${ROOT}/include/spry/ast.h
+  WORKING_DIRECTORY ${ROOT}
+  VERBATIM)
+add_custom_target(ast DEPENDS ${ROOT}/src/abi/ui.gen.h)
+
 set(_rt ${CMAKE_BINARY_DIR}/runtime)
 set(RUNTIME_WASM ${_rt}/runtime.wasm)
 add_custom_command(

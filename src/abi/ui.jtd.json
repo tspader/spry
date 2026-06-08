@@ -1,0 +1,55 @@
+{
+  "definitions": {
+    "node": {
+      "discriminator": "kind",
+      "mapping": {
+        "box": {
+          "optionalProperties": {
+            "id": { "type": "string" },
+            "props": {
+              "optionalProperties": {
+                "direction": { "enum": ["row", "column"] },
+                "gap": { "type": "int32" },
+                "padding": { "type": "int32" },
+                "align": { "enum": ["start", "center", "end", "stretch"] },
+                "justify": { "enum": ["start", "center", "end", "between"] }
+              }
+            },
+            "on": { "ref": "interaction" },
+            "children": { "elements": { "ref": "node" } }
+          }
+        },
+        "text": {
+          "optionalProperties": { "id": { "type": "string" } },
+          "properties": { "props": { "properties": { "text": { "type": "string" } } } }
+        },
+        "link": {
+          "optionalProperties": { "id": { "type": "string" } },
+          "properties": { "props": { "properties": { "text": { "type": "string" }, "href": { "type": "string" } } } }
+        },
+        "input": {
+          "optionalProperties": { "id": { "type": "string" } },
+          "properties": { "props": {
+            "properties": { "name": { "type": "string" } },
+            "optionalProperties": { "value": { "type": "string" }, "placeholder": { "type": "string" } }
+          } }
+        },
+        "button": {
+          "optionalProperties": { "id": { "type": "string" }, "on": { "ref": "interaction" } },
+          "properties": { "props": { "properties": { "text": { "type": "string" } } } }
+        }
+      }
+    },
+    "interaction": {
+      "properties": {
+        "event": { "enum": ["click", "submit"] },
+        "action": { "type": "string" },
+        "target": { "type": "string" }
+      },
+      "optionalProperties": {
+        "swap": { "enum": ["inner"] }
+      }
+    }
+  },
+  "ref": "node"
+}
