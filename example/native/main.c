@@ -51,17 +51,17 @@ static void on_activate(GtkApplication* app, gpointer user_data) {
 }
 
 s32 main(s32 argc, c8** argv) {
-  if (argc < 3) {
-    sp_log("usage: native <runtime.wasm> <tree.json>");
+  if (argc < 2) {
+    sp_log("usage: app <ui.json> [runtime.wasm]");
     return 1;
   }
 
   sp_mem_t mem = sp_mem_os_new();
   app_ctx_t ctx = sp_zero_s(app_ctx_t);
   ctx.mem = mem;
-  ctx.wasm_path = sp_cstr_as_str(argv[1]);
-  if (sp_io_read_file(mem, sp_cstr_as_str(argv[2]), &ctx.tree) != SP_OK) {
-    sp_log("native: cannot read tree {}", sp_fmt_cstr(argv[2]));
+  ctx.wasm_path = argc >= 3 ? sp_cstr_as_str(argv[2]) : sp_str_lit("runtime.wasm");
+  if (sp_io_read_file(mem, sp_cstr_as_str(argv[1]), &ctx.tree) != SP_OK) {
+    sp_log("native: cannot read tree {}", sp_fmt_cstr(argv[1]));
     return 1;
   }
 

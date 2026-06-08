@@ -4,7 +4,7 @@
 #define ABI_RUNTIME
 #include "spry/abi.h"
 
-#include "json.h"
+#include "yyjson.h"
 
 static sp_mem_t g_mem;
 static bool g_mem_init = false;
@@ -15,6 +15,19 @@ static sp_mem_t rt_mem(void) {
 }
 
 static void rt_fatal(sp_str_t msg) { host_fatal(msg.data, msg.len); }
+
+static u8 g_json_pool[1u << 20];
+
+static yyjson_doc* rt_parse(const c8* ptr, u32 len) {
+  yyjson_alc alc;
+  if (!yyjson_alc_pool_init(&alc, g_json_pool, sizeof(g_json_pool))) return SP_NULLPTR;
+  return yyjson_read_opts((c8*)ptr, len, 0, &alc, SP_NULLPTR);
+}
+
+static sp_str_t rt_str(yyjson_val* v) {
+  if (!yyjson_is_str(v)) return sp_zero_s(sp_str_t);
+  return (sp_str_t) { .data = yyjson_get_str(v), .len = (u32)yyjson_get_len(v) };
+}
 
 typedef struct rt_id {
   sp_str_t key;
@@ -51,7 +64,7 @@ static void rt_reset(void) {
 }
 
 static void rt_register_id(sp_str_t key, u32 handle) {
-  rt_id_t* node = (rt_id_t*)sp_alloc(rt_mem(), sizeof(rt_id_t));
+  rt_id_t* node = sp_alloc_type(rt_mem(), rt_id_t);
   *node = sp_zero_s(rt_id_t);
   node->key = key;
   node->handle = handle;
@@ -67,7 +80,7 @@ static u32 rt_lookup_id(sp_str_t key) {
 }
 
 static void rt_push_field(u32 handle, sp_str_t name) {
-  rt_field_t* node = (rt_field_t*)sp_alloc(rt_mem(), sizeof(rt_field_t));
+  rt_field_t* node = sp_alloc_type(rt_mem(), rt_field_t);
   *node = sp_zero_s(rt_field_t);
   node->handle = handle;
   node->name = name;
@@ -76,7 +89,7 @@ static void rt_push_field(u32 handle, sp_str_t name) {
 }
 
 static u32 rt_push_token(sp_str_t action, sp_str_t target) {
-  rt_token_t* node = (rt_token_t*)sp_alloc(rt_mem(), sizeof(rt_token_t));
+  rt_token_t* node = sp_alloc_type(rt_mem(), rt_token_t);
   *node = sp_zero_s(rt_token_t);
   node->action = action;
   node->target = target;
@@ -91,45 +104,38 @@ static rt_token_t* rt_token_at(u32 token) {
   return node;
 }
 
-static u32 rt_buf_push(c8* buf, u32 cap, u32 len, c8 c) {
-  if (len < cap) buf[len++] = c;
-  return len;
+static bool node_is(yyjson_val* v, const c8* kind) {
+  return yyjson_equals_str(v, kind);
 }
 
-static u32 rt_buf_append(c8* buf, u32 cap, u32 len, sp_str_t s) {
-  sp_for(i, s.len) { if (len >= cap) break; buf[len++] = s.data[i]; }
-  return len;
-}
-
-static bool node_is(json_value_t* v, const c8* kind) {
-  return v && v->type == JSON_STRING && sp_str_equal_cstr(v->string, kind);
-}
-
-static u32 dir_enum(json_value_t* v) {
+static u32 dir_enum(yyjson_val* v) {
   return node_is(v, "column") ? DIR_COLUMN : DIR_ROW;
 }
 
-static u32 align_enum(json_value_t* v) {
+static u32 align_enum(yyjson_val* v) {
   if (node_is(v, "center")) return ALIGN_CENTER;
   if (node_is(v, "end")) return ALIGN_END;
   if (node_is(v, "stretch")) return ALIGN_STRETCH;
   return ALIGN_START;
 }
 
-static u32 justify_enum(json_value_t* v) {
+static u32 justify_enum(yyjson_val* v) {
   if (node_is(v, "center")) return JUSTIFY_CENTER;
   if (node_is(v, "end")) return JUSTIFY_END;
   if (node_is(v, "between")) return JUSTIFY_BETWEEN;
   return JUSTIFY_START;
 }
 
-static void set_str_prop(u32 handle, json_value_t* props, const c8* key, u32 sattr) {
-  json_value_t* v = json_get(props, key);
-  if (v && v->type == JSON_STRING) host_set_attr_str(handle, sattr, v->string.data, v->string.len);
+static void set_str_prop(u32 handle, yyjson_val* props, const c8* key, u32 sattr) {
+  yyjson_val* v = yyjson_obj_get(props, key);
+  if (yyjson_is_str(v)) {
+    sp_str_t s = rt_str(v);
+    host_set_attr_str(handle, sattr, s.data, s.len);
+  }
 }
 
-static u32 render_node(json_value_t* node) {
-  json_value_t* kind = json_get(node, "kind");
+static u32 render_node(yyjson_val* node) {
+  yyjson_val* kind = yyjson_obj_get(node, "kind");
 
   el_kind_t el;
   if (node_is(kind, "box")) el = EL_BOX;
@@ -140,40 +146,42 @@ static u32 render_node(json_value_t* node) {
   else { rt_fatal(sp_str_lit("unknown node kind")); return HANDLE_NONE; }
 
   u32 handle = host_create_element(el);
-  json_value_t* props = json_get(node, "props");
+  yyjson_val* props = yyjson_obj_get(node, "props");
 
-  json_value_t* id = json_get(node, "id");
-  if (id && id->type == JSON_STRING) rt_register_id(id->string, handle);
+  yyjson_val* id = yyjson_obj_get(node, "id");
+  if (yyjson_is_str(id)) rt_register_id(sp_str_copy(rt_mem(), rt_str(id)), handle);
 
-  json_value_t* on = json_get(node, "on");
-  if (on && on->type == JSON_OBJECT) {
-    json_value_t* action = json_get(on, "action");
-    json_value_t* target = json_get(on, "target");
-    if (action && action->type == JSON_STRING && target && target->type == JSON_STRING) {
-      json_value_t* ev = json_get(on, "event");
+  yyjson_val* on = yyjson_obj_get(node, "on");
+  if (yyjson_is_obj(on)) {
+    yyjson_val* action = yyjson_obj_get(on, "action");
+    yyjson_val* target = yyjson_obj_get(on, "target");
+    if (yyjson_is_str(action) && yyjson_is_str(target)) {
+      yyjson_val* ev = yyjson_obj_get(on, "event");
       u32 event = node_is(ev, "submit") ? EVENT_SUBMIT : EVENT_CLICK;
-      u32 token = rt_push_token(action->string, target->string);
+      u32 token = rt_push_token(sp_str_copy(rt_mem(), rt_str(action)),
+                                sp_str_copy(rt_mem(), rt_str(target)));
       host_on_event(handle, event, token);
     }
   }
 
   switch (el) {
     case EL_BOX: {
-      json_value_t* dir = json_get(props, "direction");
+      yyjson_val* dir = yyjson_obj_get(props, "direction");
       if (dir) host_set_attr(handle, ATTR_DIRECTION, (s32)dir_enum(dir));
-      json_value_t* gap = json_get(props, "gap");
-      if (gap && gap->type == JSON_NUMBER) host_set_attr(handle, ATTR_GAP, (s32)gap->number);
-      json_value_t* pad = json_get(props, "padding");
-      if (pad && pad->type == JSON_NUMBER) host_set_attr(handle, ATTR_PADDING, (s32)pad->number);
-      json_value_t* align = json_get(props, "align");
+      yyjson_val* gap = yyjson_obj_get(props, "gap");
+      if (yyjson_is_num(gap)) host_set_attr(handle, ATTR_GAP, (s32)yyjson_get_num(gap));
+      yyjson_val* pad = yyjson_obj_get(props, "padding");
+      if (yyjson_is_num(pad)) host_set_attr(handle, ATTR_PADDING, (s32)yyjson_get_num(pad));
+      yyjson_val* align = yyjson_obj_get(props, "align");
       if (align) host_set_attr(handle, ATTR_ALIGN, (s32)align_enum(align));
-      json_value_t* justify = json_get(props, "justify");
+      yyjson_val* justify = yyjson_obj_get(props, "justify");
       if (justify) host_set_attr(handle, ATTR_JUSTIFY, (s32)justify_enum(justify));
 
-      json_value_t* children = json_get(node, "children");
-      if (children && children->type == JSON_ARRAY) {
-        for (json_value_t* c = children->first_child; c; c = c->next) {
-          u32 child = render_node(c);
+      yyjson_val* children = yyjson_obj_get(node, "children");
+      if (yyjson_is_arr(children)) {
+        u32 count = (u32)yyjson_arr_size(children);
+        sp_for(i, count) {
+          u32 child = render_node(yyjson_arr_get(children, i));
           if (child == HANDLE_NONE) return HANDLE_NONE;
           host_append_child(handle, child);
         }
@@ -190,10 +198,11 @@ static u32 render_node(json_value_t* node) {
       break;
     }
     case EL_INPUT: {
-      json_value_t* name = json_get(props, "name");
-      if (name && name->type == JSON_STRING) {
-        host_set_attr_str(handle, SATTR_NAME, name->string.data, name->string.len);
-        rt_push_field(handle, name->string);
+      yyjson_val* name = yyjson_obj_get(props, "name");
+      if (yyjson_is_str(name)) {
+        sp_str_t s = rt_str(name);
+        host_set_attr_str(handle, SATTR_NAME, s.data, s.len);
+        rt_push_field(handle, sp_str_copy(rt_mem(), s));
       }
       set_str_prop(handle, props, "value", SATTR_VALUE);
       set_str_prop(handle, props, "placeholder", SATTR_PLACEHOLDER);
@@ -208,11 +217,12 @@ static u32 render_node(json_value_t* node) {
   return handle;
 }
 
-static void render_into(u32 target, json_value_t* frag) {
+static void render_into(u32 target, yyjson_val* frag) {
   host_clear_children(target);
-  if (frag->type == JSON_ARRAY) {
-    for (json_value_t* c = frag->first_child; c; c = c->next) {
-      u32 child = render_node(c);
+  if (yyjson_is_arr(frag)) {
+    u32 count = (u32)yyjson_arr_size(frag);
+    sp_for(i, count) {
+      u32 child = render_node(yyjson_arr_get(frag, i));
       if (child != HANDLE_NONE) host_append_child(target, child);
     }
   } else {
@@ -236,11 +246,10 @@ s32 rt_render(const c8* ptr, u32 len) {
 
   rt_reset();
 
-  sp_str_t src = { .data = ptr, .len = len };
-  json_value_t* root = json_parse(rt_mem(), src);
-  if (!root) { rt_fatal(sp_str_lit("json parse error")); return 2; }
+  yyjson_doc* doc = rt_parse(ptr, len);
+  if (!doc) { rt_fatal(sp_str_lit("json parse error")); return 2; }
 
-  u32 handle = render_node(root);
+  u32 handle = render_node(yyjson_doc_get_root(doc));
   if (handle == HANDLE_NONE) return 3;
 
   host_set_root(handle);
@@ -252,21 +261,19 @@ void rt_dispatch(u32 token) {
   rt_token_t* it = rt_token_at(token);
   if (!it) return;
 
-  c8 body[4096];
-  u32 blen = 0;
+  sp_da(c8) body = sp_da_new(rt_mem(), c8);
   bool first = true;
   for (rt_field_t* f = g_fields; f; f = f->next) {
     c8 val[1024];
     u32 vlen = host_get_value(f->handle, val, sizeof(val));
-    sp_str_t value = { .data = val, .len = vlen };
-    if (!first) blen = rt_buf_push(body, sizeof(body), blen, '&');
+    if (!first) sp_da_push(body, '&');
     first = false;
-    blen = rt_buf_append(body, sizeof(body), blen, f->name);
-    blen = rt_buf_push(body, sizeof(body), blen, '=');
-    blen = rt_buf_append(body, sizeof(body), blen, value);
+    sp_for(i, f->name.len) sp_da_push(body, f->name.data[i]);
+    sp_da_push(body, '=');
+    sp_for(i, vlen) sp_da_push(body, val[i]);
   }
 
-  host_submit(token, it->action.data, it->action.len, body, blen);
+  host_submit(token, it->action.data, it->action.len, body, (u32)sp_da_size(body));
 }
 
 __attribute__((export_name("deliver")))
@@ -277,9 +284,8 @@ void rt_deliver(u32 token, const c8* ptr, u32 len) {
   u32 target = rt_lookup_id(it->target);
   if (target == HANDLE_NONE) { rt_fatal(sp_str_lit("swap target not found")); return; }
 
-  sp_str_t src = { .data = ptr, .len = len };
-  json_value_t* frag = json_parse(rt_mem(), src);
-  if (!frag) { rt_fatal(sp_str_lit("fragment parse error")); return; }
+  yyjson_doc* doc = rt_parse(ptr, len);
+  if (!doc) { rt_fatal(sp_str_lit("fragment parse error")); return; }
 
-  render_into(target, frag);
+  render_into(target, yyjson_doc_get_root(doc));
 }

@@ -34,22 +34,43 @@ add_custom_command(
   VERBATIM)
 add_custom_target(abi DEPENDS ${ROOT}/src/abi/abi.gen.ts)
 
-set(RUNTIME_WASM ${WEB_OUT}/runtime.wasm)
+set(_rt ${CMAKE_BINARY_DIR}/runtime)
+set(RUNTIME_WASM ${_rt}/runtime.wasm)
 add_custom_command(
   OUTPUT ${RUNTIME_WASM}
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${WEB_OUT}
-  COMMAND zig cc --target=wasm32-freestanding -nostdlib -fno-sanitize=undefined
-          ${INC} -Wl,--no-entry -Wl,--export-dynamic
-          -o ${RUNTIME_WASM} ${ROOT}/src/runtime/runtime.c
-  DEPENDS ${ROOT}/src/runtime/runtime.c ${HEADERS}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${_rt}
+  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined ${YYJSON_DEFS}
+          ${INC} -I${ROOT}/src/runtime/wasm_libc -I${YYJSON_DIR}
+          -c ${ROOT}/src/runtime/runtime.c -o ${_rt}/runtime.o
+  COMMAND zig cc --target=wasm32-wasi -O2 ${YYJSON_DEFS} -I${YYJSON_DIR}
+          -c ${YYJSON_DIR}/yyjson.c -o ${_rt}/yyjson.o
+  COMMAND zig cc --target=wasm32-freestanding -O2
+          -c ${ROOT}/src/runtime/wasm_shims.c -o ${_rt}/shims.o
+  COMMAND zig cc --target=wasm32-freestanding -nostdlib -Wl,--no-entry,--export-dynamic
+          -o ${RUNTIME_WASM} ${_rt}/runtime.o ${_rt}/yyjson.o ${_rt}/shims.o
+  DEPENDS ${ROOT}/src/runtime/runtime.c ${ROOT}/src/runtime/wasm_shims.c
+          ${YYJSON_DIR}/yyjson.c ${HEADERS}
   VERBATIM)
-add_custom_target(runtime ALL DEPENDS ${RUNTIME_WASM})
+
+set(RUNTIME_WEB  ${WEB_OUT}/runtime.wasm)
+set(RUNTIME_GTK  ${STORE_TARGET}/gtk/runtime.wasm)
+set(RUNTIME_TEST ${TEST_OUT}/runtime.wasm)
+foreach(dst ${RUNTIME_WEB} ${RUNTIME_GTK} ${RUNTIME_TEST})
+  get_filename_component(dstdir ${dst} DIRECTORY)
+  add_custom_command(
+    OUTPUT ${dst}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${dstdir}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${RUNTIME_WASM} ${dst}
+    DEPENDS ${RUNTIME_WASM}
+    VERBATIM)
+endforeach()
+add_custom_target(runtime ALL DEPENDS ${RUNTIME_WEB} ${RUNTIME_GTK} ${RUNTIME_TEST})
 
 add_custom_command(
   OUTPUT ${WEB_OUT}/host.bundle.js
   COMMAND bun run ${ROOT}/tools/bundle-web.ts
   DEPENDS ${ROOT}/example/web/main.ts ${ROOT}/example/web/index.html
-          ${ROOT}/src/abi/abi.gen.ts ${RUNTIME_WASM} ${ROOT}/tools/bundle-web.ts
+          ${ROOT}/src/abi/abi.gen.ts ${RUNTIME_WEB} ${ROOT}/tools/bundle-web.ts
   WORKING_DIRECTORY ${ROOT}
   VERBATIM)
 add_custom_target(web ALL DEPENDS ${WEB_OUT}/host.bundle.js)

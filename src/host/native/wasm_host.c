@@ -1,6 +1,6 @@
 #define SP_IMPLEMENTATION
 #include "sp.h"
-#include "wasm.h"
+#include "wasmer.h"
 #include "spry/backend/backend.h"
 #include "spry/host.h"
 
@@ -11,6 +11,7 @@ struct wasm_host {
   wasm_engine_t* engine;
   wasm_store_t* store;
   wasm_module_t* module;
+  wasi_env_t* wasi_env;
   wasm_instance_t* instance;
   wasm_memory_t* memory;
   wasm_func_t* fn_alloc;
@@ -162,6 +163,12 @@ static bool name_eq(const wasm_name_t* name, const c8* s) {
   return sp_str_equal_cstr(a, s);
 }
 
+static bool names_eq(const wasm_name_t* a, const wasm_name_t* b) {
+  sp_str_t x = { .data = a->data, .len = (u32)a->size };
+  sp_str_t y = { .data = b->data, .len = (u32)b->size };
+  return sp_str_equal(x, y);
+}
+
 wasm_host_t* wasm_host_new(sp_mem_t mem, sp_str_t wasm_path) {
   wasm_host_t* h = sp_alloc(mem, sizeof(wasm_host_t));
   *h = sp_zero_s(wasm_host_t);
@@ -196,22 +203,50 @@ wasm_host_t* wasm_host_new(sp_mem_t mem, sp_str_t wasm_path) {
     wasm_functype_delete(ft);
   }
 
+  wasi_config_t* wasi_config = wasi_config_new("spry");
+  wasi_config_inherit_stdout(wasi_config);
+  wasi_config_inherit_stderr(wasi_config);
+  h->wasi_env = wasi_env_new(h->store, wasi_config);
+  if (!h->wasi_env) {
+    sp_log("wasm_host: failed to create wasi env");
+    return SP_NULLPTR;
+  }
+
+  wasmer_named_extern_vec_t wasi_externs = { .size = 0, .data = SP_NULLPTR };
+  wasi_get_unordered_imports(h->wasi_env, h->module, &wasi_externs);
+
   wasm_importtype_vec_t import_types;
   wasm_module_imports(h->module, &import_types);
 
   wasm_extern_t** externs = sp_alloc(mem, sizeof(wasm_extern_t*) * import_types.size);
   sp_for(i, import_types.size) {
+    const wasm_name_t* want_mod = wasm_importtype_module(import_types.data[i]);
     const wasm_name_t* want = wasm_importtype_name(import_types.data[i]);
-    wasm_func_t* match = SP_NULLPTR;
-    sp_for(j, HOST_FN_COUNT) {
-      if (name_eq(want, HOST_FNS[j].name)) { match = funcs[j]; break; }
+    wasm_extern_t* match = SP_NULLPTR;
+
+    if (name_eq(want_mod, "host")) {
+      sp_for(j, HOST_FN_COUNT) {
+        if (name_eq(want, HOST_FNS[j].name)) { match = wasm_func_as_extern(funcs[j]); break; }
+      }
+    } else {
+      sp_for(j, wasi_externs.size) {
+        const wasm_name_t* have_mod = wasmer_named_extern_module(wasi_externs.data[j]);
+        const wasm_name_t* have = wasmer_named_extern_name(wasi_externs.data[j]);
+        if (names_eq(have_mod, want_mod) && names_eq(have, want)) {
+          match = (wasm_extern_t*)wasmer_named_extern_unwrap(wasi_externs.data[j]);
+          break;
+        }
+      }
     }
+
     if (!match) {
+      sp_str_t m = { .data = want_mod->data, .len = (u32)want_mod->size };
       sp_str_t n = { .data = want->data, .len = (u32)want->size };
-      sp_log("wasm_host: runtime needs import '{}' which the host does not provide", sp_fmt_str(n));
+      sp_log("wasm_host: runtime needs import '{}.{}' which the host does not provide",
+             sp_fmt_str(m), sp_fmt_str(n));
       return SP_NULLPTR;
     }
-    externs[i] = wasm_func_as_extern(match);
+    externs[i] = match;
   }
 
   wasm_extern_vec_t import_object = { .size = import_types.size, .data = externs };
@@ -220,6 +255,11 @@ wasm_host_t* wasm_host_new(sp_mem_t mem, sp_str_t wasm_path) {
   wasm_importtype_vec_delete(&import_types);
   if (!h->instance) {
     sp_log("wasm_host: instantiation failed");
+    return SP_NULLPTR;
+  }
+
+  if (!wasi_env_initialize_instance(h->wasi_env, h->store, h->instance)) {
+    sp_log("wasm_host: failed to initialize wasi instance");
     return SP_NULLPTR;
   }
 
