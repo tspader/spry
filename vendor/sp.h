@@ -192,6 +192,17 @@
   #define SP_CPP
 #endif
 
+
+//    █████████     ███████    ██████   █████ ███████████ █████   █████████
+//   ███░░░░░███  ███░░░░░███ ░░██████ ░░███ ░░███░░░░░░█░░███   ███░░░░░███
+//  ███     ░░░  ███     ░░███ ░███░███ ░███  ░███   █ ░  ░███  ███     ░░░
+// ░███         ░███      ░███ ░███░░███░███  ░███████    ░███ ░███
+// ░███         ░███      ░███ ░███ ░░██████  ░███░░░█    ░███ ░███    █████
+// ░░███     ███░░███     ███  ░███  ░░█████  ░███  ░     ░███ ░░███  ░░███
+//  ░░█████████  ░░░███████░   █████  ░░█████ █████       █████ ░░█████████
+//   ░░░░░░░░░     ░░░░░░░    ░░░░░    ░░░░░ ░░░░░       ░░░░░   ░░░░░░░░░
+// @config
+
 /////////////
 // LINKAGE //
 /////////////
@@ -227,6 +238,20 @@
   #else
     #define SP_API extern
   #endif
+#endif
+
+////////////
+// ASSERT //
+////////////
+
+#define SP_ASSERT_NONE 0
+#define SP_ASSERT_TRAP 1
+#define SP_ASSERT_LOG 2
+
+#define SP_ASSERT_ENABLED(cap) (SP_ASSERT_LEVEL >= (cap))
+
+#if !defined(SP_ASSERT_LEVEL)
+  #define SP_ASSERT_LEVEL SP_ASSERT_LOG
 #endif
 
 
@@ -323,7 +348,6 @@
   #define SP_FALLTHROUGH() ((void)0)
 #endif
 
-
 /////////////
 // SP_RVAL //
 /////////////
@@ -342,9 +366,9 @@
   #define SP_THREAD_LOCAL _Thread_local
 #endif
 
-/////////////////////
+///////////////////
 // SP_*_EXTERN_C //
-/////////////////////
+///////////////////
 #ifdef SP_CPP
   #define SP_EXTERN_C extern "C"
   #define SP_BEGIN_EXTERN_C() extern "C" {
@@ -356,7 +380,7 @@
 #endif
 
 /////////////
-// sp_zero //
+// SP_ZERO //
 /////////////
 #ifdef SP_CPP
   #define sp_zero {}
@@ -474,16 +498,8 @@
 
 #define SP_MEM_ALIGNMENT 16
 #define SP_ALIGNED SP_ALIGN(SP_MEM_ALIGNMENT)
-// #define sp_align_up(ptr, align) ((void*)(((uintptr_t)(ptr) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1)))
-// #define sp_align_up_as(T, ptr, align) (((uintptr_t)(ptr) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1))
-// #define sp_align_down(ptr, align) ((uintptr_t)(ptr) & ~((uintptr_t)(align) - 1))
-// #define sp_align_up(ptr, align) sp_align_down(ptr + ((uintptr_t)(align) - 1), align)
+#define sp_align_up(ptr, align) ((void*)(((uintptr_t)(ptr) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1)))
 #define sp_align_offset(val, align) ((((val) + ((u64)(align) - 1)) & ~((u64)(align) - 1)))
-
-#define sp_uptr(ptr) ((uintptr_t)(ptr))
-#define sp_align_mask(align) (sp_uptr(align) - 1)
-#define sp_align_down(ptr, align) (sp_uptr(ptr) & ~sp_align_mask(align))
-#define sp_align_up(ptr, align) sp_align_down(sp_uptr(ptr) + sp_align_mask(align), align)
 
 #define sp_try(expr) \
   do { \
@@ -592,7 +608,7 @@ SP_BEGIN_EXTERN_C()
 
 #if defined(SP_FREESTANDING)
 
-#elif defined(SP_LINUX) // @preprocessor
+#elif defined(SP_LINUX)
   #include <assert.h>
   #include <fcntl.h>
   #include <poll.h>
@@ -1491,47 +1507,6 @@ typedef struct {
   u8 alignment;
 } sp_mem_fixed_t;
 
-/*
-  sp_mem_heap_span_t
-
-  The simplest useful heap allocator; not to be confused with the simplest *good* heap
-  allocator. In general, you should prefer to use an allocator tailored to your program's
-  actual allocation patterns. If your program is simple enough that this doesn't matter,
-  then you probably want sp_mem_arena_t, which gives you extremely fast allocations and
-  deallocations by just sliding a pointer into a big chunk of memory.
- */
-#ifndef SP_MEM_HEAP_NUM_BUCKETS
-  #define SP_MEM_HEAP_NUM_BUCKETS 8
-#endif
-#ifndef SP_MEM_HEAP_SPAN_SIZE
-  #define SP_MEM_HEAP_SPAN_SIZE 4096
-#endif
-#define SP_MEM_HEAP_MAX_SMALL (16u << (SP_MEM_HEAP_NUM_BUCKETS - 1))
-#define SP_MEM_HEAP_SPAN_MAGIC 0x53504D48u
-#define SP_MEM_HEAP_LARGE_MAGIC 0x53504C47u
-
-typedef struct SP_ALIGNED sp_mem_heap_span_t {
-  u32 magic;
-  u16 bucket_id;
-  u16 in_use;
-  void* free_head;
-  struct sp_mem_heap_span_t* next;
-  struct sp_mem_heap_t* heap;
-} sp_mem_heap_span_t;
-
-typedef struct SP_ALIGNED sp_mem_heap_large_t {
-  u32 magic;
-  u32 pad;
-  u64 size;
-  struct sp_mem_heap_large_t* next;
-  struct sp_mem_heap_t* heap;
-} sp_mem_heap_large_t;
-
-typedef struct sp_mem_heap_t {
-  sp_mem_heap_span_t* buckets [SP_MEM_HEAP_NUM_BUCKETS];
-  sp_mem_heap_large_t* larges;
-} sp_mem_heap_t;
-
 SP_API void                  sp_mem_copy(void* dest, const void* source, u64 num_bytes);
 SP_API void                  sp_mem_move(void* dest, const void* source, u64 num_bytes);
 SP_API bool                  sp_mem_is_equal(const void* a, const void* b, u64 len);
@@ -1548,17 +1523,6 @@ SP_API void                  sp_mem_os_free(void* ptr);
 SP_API void*                 sp_mem_os_on_alloc(void* ud, sp_mem_alloc_mode_t mode, u64 size, void* ptr);
 SP_API sp_mem_os_header_t*   sp_mem_os_get_header(void* ptr);
 SP_API sp_mem_t              sp_mem_os_new();
-SP_API sp_mem_heap_t*        sp_mem_heap_new();
-SP_API void                  sp_mem_heap_destroy(sp_mem_heap_t* heap);
-SP_API sp_mem_t              sp_mem_heap_as_allocator(sp_mem_heap_t* heap);
-SP_API void*                 sp_mem_heap_on_alloc(void* ud, sp_mem_alloc_mode_t mode, u64 size, void* ptr);
-SP_API void*                 sp_mem_heap_alloc(sp_mem_heap_t* heap, u64 size);
-SP_API void*                 sp_mem_heap_realloc(sp_mem_heap_t* heap, void* ptr, u64 size);
-SP_API void                  sp_mem_heap_free(sp_mem_heap_t* heap, void* ptr);
-SP_API u32                   sp_mem_heap_get_bucket_id(u64 size);
-SP_API u64                   sp_mem_heap_bucket_size(u32 class_idx);
-SP_API sp_mem_heap_span_t*   sp_mem_heap_find_span(sp_mem_heap_t* heap, void* ptr);
-SP_API u32                   sp_mem_heap_span_class(sp_mem_heap_span_t* span);
 SP_API sp_mem_t              sp_mem_arena_as_allocator(sp_mem_arena_t* arena);
 SP_API void*                 sp_alloc(sp_mem_t mem, u64 size);
 SP_API void*                 sp_realloc(sp_mem_t mem, void* memory, u64 size);
@@ -3689,6 +3653,8 @@ SP_PRIVATE void  sp_tls_new(sp_tls_key_t* key, sp_tls_deinit_fn_t fn);
 SP_PRIVATE void* sp_tls_get(sp_tls_key_t key);
 SP_PRIVATE void  sp_tls_set(sp_tls_key_t key, void* data);
 SP_PRIVATE void  sp_tls_once(sp_tls_once_t* once, sp_tls_once_fn_t);
+SP_PRIVATE sp_io_writer_t* sp_tls_std_out(sp_tls_rt_t* tls);
+SP_PRIVATE sp_io_writer_t* sp_tls_std_err(sp_tls_rt_t* tls);
 
 // @io
 SP_IMP sp_err_t sp_io_file_reader_read(sp_io_reader_t* reader, void* ptr, u64 size, u64* bytes_read);
@@ -7907,8 +7873,8 @@ void sp_rt_init() {
 void sp_tls_rt_deinit(void* ptr) {
   if (!ptr) return;
   sp_tls_rt_t* tls = (sp_tls_rt_t*)ptr;
-  sp_mem_allocator_free(tls->mem, tls->std.out);
-  sp_mem_allocator_free(tls->mem, tls->std.err);
+  if (tls->std.out) sp_mem_allocator_free(tls->mem, tls->std.out);
+  if (tls->std.err) sp_mem_allocator_free(tls->mem, tls->std.err);
   sp_str_ht_free(tls->format.directives);
   sp_carr_for(tls->scratch, it) {
     sp_mem_arena_destroy(tls->scratch[it]);
@@ -7931,15 +7897,30 @@ sp_tls_rt_t* sp_tls_rt_get() {
     sp_carr_for(tls->scratch, it) {
       tls->scratch[it] = sp_mem_arena_new(tls->mem);
     }
-    tls->std.out = sp_alloc_type(tls->mem, sp_io_stream_writer_t);
-    tls->std.err = sp_alloc_type(tls->mem, sp_io_stream_writer_t);
-    sp_io_stream_writer_from_fd(tls->std.out, sp_sys_stdout, SP_IO_CLOSE_MODE_NONE);
-    sp_io_stream_writer_from_fd(tls->std.err, sp_sys_stderr, SP_IO_CLOSE_MODE_NONE);
+    // std.out/std.err are wired lazily (see sp_tls_std_out/_err). Wiring them here
+    // would take the address of sp_io_stream_writer_write in code that sp_main always
+    // reaches, which on WASM forces a fd_write import even for programs that never write.
     sp_str_ht_init(tls->mem, tls->format.directives);
     sp_fmt_register_builtins();
     sp_sys_tls_init(tls);
   }
   return tls;
+}
+
+sp_io_writer_t* sp_tls_std_out(sp_tls_rt_t* tls) {
+  if (!tls->std.out) {
+    tls->std.out = sp_alloc_type(tls->mem, sp_io_stream_writer_t);
+    sp_io_stream_writer_from_fd(tls->std.out, sp_sys_stdout, SP_IO_CLOSE_MODE_NONE);
+  }
+  return &tls->std.out->base;
+}
+
+sp_io_writer_t* sp_tls_std_err(sp_tls_rt_t* tls) {
+  if (!tls->std.err) {
+    tls->std.err = sp_alloc_type(tls->mem, sp_io_stream_writer_t);
+    sp_io_stream_writer_from_fd(tls->std.err, sp_sys_stderr, SP_IO_CLOSE_MODE_NONE);
+  }
+  return &tls->std.err->base;
 }
 
 #if defined(SP_FREESTANDING)
@@ -9547,6 +9528,7 @@ s32 sp_sys_fs_it_next(sp_sys_fs_it_t* it, sp_sys_fs_entry_t* out) {
 void sp_assert_f(sp_str_t file, sp_str_t line, sp_str_t func, sp_str_t expr, bool cond) {
   if (cond) return;
 
+#if SP_ASSERT_ENABLED(SP_ASSERT_LOG)
   sp_io_stream_writer_t io = sp_zero;
   sp_io_stream_writer_from_fd(&io, sp_sys_stderr, SP_IO_CLOSE_MODE_NONE);
   sp_fmt_io(
@@ -9560,8 +9542,11 @@ void sp_assert_f(sp_str_t file, sp_str_t line, sp_str_t func, sp_str_t expr, boo
     sp_fmt_str(expr)
   );
   sp_io_write_cstr(&io.base, "\n", SP_NULLPTR);
+#endif
 
+#if SP_ASSERT_ENABLED(SP_ASSERT_TRAP)
   sp_sys_assert(cond);
+#endif
 }
 
 ///////////
@@ -14275,193 +14260,6 @@ sp_mem_t sp_mem_os_new() {
   return allocator;
 }
 
-u32 sp_mem_heap_get_bucket_id(u64 size) {
-  sp_for(it, SP_MEM_HEAP_NUM_BUCKETS) {
-    if (size <= sp_mem_heap_bucket_size(it)) return it;
-  }
-  return SP_MEM_HEAP_NUM_BUCKETS;
-}
-
-u64 sp_mem_heap_bucket_size(u32 class_idx) {
-  return (u64)16 << class_idx;
-}
-
-sp_mem_heap_t* sp_mem_heap_new() {
-  sp_mem_heap_t* heap = (sp_mem_heap_t*)sp_sys_alloc(sizeof(sp_mem_heap_t));
-  if (!heap) return SP_NULLPTR;
-  sp_mem_zero(heap, sizeof(*heap));
-  return heap;
-}
-
-void sp_mem_heap_destroy(sp_mem_heap_t* heap) {
-  if (!heap) return;
-
-  sp_for(it, SP_MEM_HEAP_NUM_BUCKETS) {
-    sp_mem_heap_span_t* s = heap->buckets[it];
-    while (s) {
-      sp_mem_heap_span_t* next = s->next;
-      sp_sys_free(s, SP_MEM_HEAP_SPAN_SIZE);
-      s = next;
-    }
-  }
-  sp_mem_heap_large_t* l = heap->larges;
-  while (l) {
-    sp_mem_heap_large_t* next = l->next;
-    sp_sys_free(l, l->size + sizeof(sp_mem_heap_large_t));
-    l = next;
-  }
-  sp_sys_free(heap, sizeof(*heap));
-}
-
-sp_mem_heap_span_t* sp_mem_heap_find_span(sp_mem_heap_t* heap, void* ptr) {
-  if (!heap || !ptr) return SP_NULLPTR;
-
-  uintptr_t aligned = sp_align_down(ptr, SP_MEM_HEAP_SPAN_SIZE);
-  sp_mem_heap_span_t* candidate = sp_ptr_cast(sp_mem_heap_span_t*, aligned);
-  if (candidate->magic != SP_MEM_HEAP_SPAN_MAGIC) return SP_NULLPTR;
-  if (candidate->heap != heap) return SP_NULLPTR;
-  return candidate;
-}
-
-u32 sp_mem_heap_span_class(sp_mem_heap_span_t* span) {
-  return span ? (u32)span->bucket_id : SP_MEM_HEAP_NUM_BUCKETS;
-}
-
-static sp_mem_heap_span_t* sp_mem_heap_span_new(sp_mem_heap_t* heap, u32 bucket_id) {
-  u8* mem = sp_sys_alloc_n(u8, SP_MEM_HEAP_SPAN_SIZE);
-  if (!mem) return SP_NULLPTR;
-
-  sp_mem_heap_span_t* span = (sp_mem_heap_span_t*)mem;
-  span->magic = SP_MEM_HEAP_SPAN_MAGIC;
-  span->bucket_id = (u16)bucket_id;
-  span->in_use = 0;
-  span->next = SP_NULLPTR;
-  span->heap = heap;
-
-  u64 bucket_size = sp_mem_heap_bucket_size(bucket_id);
-  u8* usable = mem + sizeof(sp_mem_heap_span_t);
-  u8* base = sp_ptr_cast(u8*, sp_align_up(mem + sizeof(sp_mem_heap_span_t), SP_MEM_ALIGNMENT));
-  u8* end = mem + SP_MEM_HEAP_SPAN_SIZE;
-  u64 capacity = (u64)(end - base) / bucket_size;
-
-  void* head = SP_NULLPTR;
-  sp_for(it, capacity) {
-    u8* chunk = base + (it * bucket_size);
-    *(void**)chunk = head;
-    head = chunk;
-  }
-  span->free_head = head;
-  span->next = heap->buckets[bucket_id];
-  heap->buckets[bucket_id] = span;
-  return span;
-}
-
-void* sp_mem_heap_alloc(sp_mem_heap_t* heap, u64 size) {
-  if (!heap || !size) return SP_NULLPTR;
-
-  u32 bucket = sp_mem_heap_get_bucket_id(size);
-  if (bucket < SP_MEM_HEAP_NUM_BUCKETS) {
-    sp_mem_heap_span_t* span = SP_NULLPTR;
-    for (sp_mem_heap_span_t* s = heap->buckets[bucket]; s; s = s->next) {
-      if (s->free_head) {
-        span = s;
-        break;
-      }
-    }
-
-    if (!span) span = sp_mem_heap_span_new(heap, bucket);
-    if (!span) return SP_NULLPTR;
-
-    void* chunk = span->free_head;
-    span->free_head = *(void**)chunk;
-    span->in_use++;
-    sp_mem_zero(chunk, sp_mem_heap_bucket_size(bucket));
-    return chunk;
-  }
-  else {
-    sp_mem_heap_large_t* l = sp_ptr_cast(sp_mem_heap_large_t*, sp_sys_alloc(size + sizeof(sp_mem_heap_large_t)));
-    if (!l) return SP_NULLPTR;
-    l->magic = SP_MEM_HEAP_LARGE_MAGIC;
-    l->size = size;
-    l->heap = heap;
-    l->next = heap->larges;
-    heap->larges = l;
-    return l + 1;
-  }
-}
-
-void sp_mem_heap_free(sp_mem_heap_t* heap, void* ptr) {
-  if (!heap || !ptr) return;
-
-  sp_mem_heap_span_t* span = sp_mem_heap_find_span(heap, ptr);
-  if (span) {
-    *(void**)ptr = span->free_head;
-    span->free_head = ptr;
-    span->in_use--;
-    if (span->in_use != 0) return;
-
-    sp_mem_heap_span_t** previous = &heap->buckets[span->bucket_id];
-    while (*previous && *previous != span) {
-      previous = &(*previous)->next;
-    }
-    if (*previous == span) *previous = span->next;
-    sp_sys_free(span, SP_MEM_HEAP_SPAN_SIZE);
-  }
-  else {
-    sp_mem_heap_large_t* target = ((sp_mem_heap_large_t*)ptr) - 1;
-    sp_mem_heap_large_t** pp = &heap->larges;
-    while (*pp) {
-      if (*pp == target) {
-        *pp = target->next;
-        sp_sys_free(target, target->size + sizeof(sp_mem_heap_large_t));
-        return;
-      }
-      pp = &(*pp)->next;
-    }
-
-  }
-}
-
-void* sp_mem_heap_realloc(sp_mem_heap_t* heap, void* ptr, u64 size) {
-  if (!ptr) return sp_mem_heap_alloc(heap, size);
-  if (!size) { sp_mem_heap_free(heap, ptr); return SP_NULLPTR; }
-
-  u64 old_size;
-  sp_mem_heap_span_t* span = sp_mem_heap_find_span(heap, ptr);
-  if (span) {
-    old_size = sp_mem_heap_bucket_size(span->bucket_id);
-    u32 bucket_id = sp_mem_heap_get_bucket_id(size);
-    if (bucket_id == span->bucket_id) return ptr;
-  } else {
-    sp_mem_heap_large_t* large = ((sp_mem_heap_large_t*)ptr) - 1;
-    old_size = large->size;
-    if (old_size >= size && sp_mem_heap_get_bucket_id(size) >= SP_MEM_HEAP_NUM_BUCKETS) return ptr;
-  }
-
-  void* fresh = sp_mem_heap_alloc(heap, size);
-  if (!fresh) return SP_NULLPTR;
-  sp_mem_copy(fresh, ptr, old_size < size ? old_size : size);
-  sp_mem_heap_free(heap, ptr);
-  return fresh;
-}
-
-void* sp_mem_heap_on_alloc(void* user_data, sp_mem_alloc_mode_t mode, u64 size, void* ptr) {
-  sp_mem_heap_t* heap = (sp_mem_heap_t*)user_data;
-  switch (mode) {
-    case SP_ALLOCATOR_MODE_ALLOC:  return sp_mem_heap_alloc(heap, size);
-    case SP_ALLOCATOR_MODE_RESIZE: return sp_mem_heap_realloc(heap, ptr, size);
-    case SP_ALLOCATOR_MODE_FREE:   sp_mem_heap_free(heap, ptr); return SP_NULLPTR;
-    default:                       return SP_NULLPTR;
-  }
-}
-
-sp_mem_t sp_mem_heap_as_allocator(sp_mem_heap_t* heap) {
-  sp_mem_t allocator;
-  allocator.on_alloc = sp_mem_heap_on_alloc;
-  allocator.user_data = heap;
-  return allocator;
-}
-
 void* sp_alloc(sp_mem_t allocator, u64 size) {
   return sp_mem_allocator_alloc(allocator, size);
 }
@@ -14785,34 +14583,34 @@ void sp_log(const c8* fmt, ...) {
   sp_tls_rt_t* tls = sp_tls_rt_get();
   va_list args;
   va_start(args, fmt);
-  sp_fmt_io_v(&tls->std.out->base, sp_str_view(fmt), args);
+  sp_fmt_io_v(sp_tls_std_out(tls), sp_str_view(fmt), args);
   va_end(args);
-  sp_io_write_cstr(&tls->std.out->base, "\n", SP_NULLPTR);
+  sp_io_write_cstr(sp_tls_std_out(tls), "\n", SP_NULLPTR);
 }
 
 void sp_log_str(sp_str_t fmt, ...) {
   sp_tls_rt_t* tls = sp_tls_rt_get();
   va_list args;
   va_start(args, fmt);
-  sp_fmt_io_v(&tls->std.out->base, fmt, args);
+  sp_fmt_io_v(sp_tls_std_out(tls), fmt, args);
   va_end(args);
-  sp_io_write_cstr(&tls->std.out->base, "\n", SP_NULLPTR);
+  sp_io_write_cstr(sp_tls_std_out(tls), "\n", SP_NULLPTR);
 }
 
 void sp_log_err(const c8* fmt, ...) {
   sp_tls_rt_t* tls = sp_tls_rt_get();
   va_list args;
   va_start(args, fmt);
-  sp_fmt_io_v(&tls->std.out->base, sp_str_view(fmt), args);
+  sp_fmt_io_v(sp_tls_std_out(tls), sp_str_view(fmt), args);
   va_end(args);
-  sp_io_write_cstr(&tls->std.out->base, "\n", SP_NULLPTR);
+  sp_io_write_cstr(sp_tls_std_out(tls), "\n", SP_NULLPTR);
 }
 
 void sp_print(const c8* fmt, ...) {
   sp_tls_rt_t* tls = sp_tls_rt_get();
   va_list args;
   va_start(args, fmt);
-  sp_fmt_io_v(&tls->std.out->base, sp_str_view(fmt), args);
+  sp_fmt_io_v(sp_tls_std_out(tls), sp_str_view(fmt), args);
   va_end(args);
 }
 
@@ -14820,7 +14618,7 @@ void sp_print_str(sp_str_t fmt, ...) {
   sp_tls_rt_t* tls = sp_tls_rt_get();
   va_list args;
   va_start(args, fmt);
-  sp_fmt_io_v(&tls->std.out->base, fmt, args);
+  sp_fmt_io_v(sp_tls_std_out(tls), fmt, args);
   va_end(args);
 }
 
@@ -14828,7 +14626,7 @@ void sp_print_err(const c8* fmt, ...) {
   sp_tls_rt_t* tls = sp_tls_rt_get();
   va_list args;
   va_start(args, fmt);
-  sp_fmt_io_v(&tls->std.err->base, sp_str_view(fmt), args);
+  sp_fmt_io_v(sp_tls_std_err(tls), sp_str_view(fmt), args);
   va_end(args);
 }
 

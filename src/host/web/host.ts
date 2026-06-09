@@ -1,5 +1,4 @@
 import type { Backend, HostIface } from "spry/backend";
-import { makeWasiShim } from "./wasi-shim.js";
 
 export interface Mount {
   render(treeJson: string): number;
@@ -68,10 +67,8 @@ export async function mount<Node>(
     fatal: (ptr: number, len: number) => backend.fatal(readStr(ptr, len)),
   };
 
-  const shim = makeWasiShim();
   const wasmBytes = await fetch(wasmUrl).then((r) => r.arrayBuffer());
-  instance = (await WebAssembly.instantiate(wasmBytes, { host, ...shim.imports })).instance;
-  shim.setInstance(instance);
+  instance = (await WebAssembly.instantiate(wasmBytes, { host })).instance;
   memory = instance.exports.memory as WebAssembly.Memory;
 
   const alloc = instance.exports.alloc as (len: number) => number;

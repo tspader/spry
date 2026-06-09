@@ -55,10 +55,10 @@ set(RUNTIME_WASM ${_rt}/runtime.wasm)
 add_custom_command(
   OUTPUT ${RUNTIME_WASM}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${_rt}
-  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined ${YYJSON_DEFS}
+  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined -DSP_ASSERT_LEVEL=SP_ASSERT_TRAP ${YYJSON_DEFS}
           ${INC} -I${ROOT}/src -I${ROOT}/src/runtime/wasm_libc -I${YYJSON_DIR}
           -c ${ROOT}/src/runtime/runtime.c -o ${_rt}/runtime.o
-  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined ${YYJSON_DEFS}
+  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined -DSP_ASSERT_LEVEL=SP_ASSERT_TRAP ${YYJSON_DEFS}
           ${INC} -I${ROOT}/src/runtime/wasm_libc -I${YYJSON_DIR}
           -c ${ROOT}/src/ast/ast.c -o ${_rt}/ast.o
   COMMAND zig cc --target=wasm32-wasi -O2 ${YYJSON_DEFS} -I${YYJSON_DIR}
