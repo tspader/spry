@@ -57,7 +57,7 @@ UTEST_F(scalar, optional_absent_zeroed) {
 UTEST_F(scalar, int_wrong_type) {
   run_scalar_case(utest_result, (scalar_case_t){
     .json = "test/ast/json/scalar.bad_int.json",
-    .errors = { { .code = SPRY_ERR_AST_EXPECTED_INT, .path = "$.gap" } },
+    .errors = { { .code = SPRY_ERR_AST_EXPECTED_NUMBER, .path = "$.gap" } },
   });
 }
 

@@ -6,13 +6,24 @@
 
 typedef enum {
   SPRY_AST_BOOL,
-  SPRY_AST_I32,
+  SPRY_AST_NUMBER,
   SPRY_AST_STR,
   SPRY_AST_ENUM,
   SPRY_AST_OBJECT,
   SPRY_AST_ARRAY,
   SPRY_AST_UNION,
 } spry_ast_kind_t;
+
+typedef enum {
+  SPRY_NUM_S8,
+  SPRY_NUM_U8,
+  SPRY_NUM_S16,
+  SPRY_NUM_U16,
+  SPRY_NUM_S32,
+  SPRY_NUM_U32,
+  SPRY_NUM_F32,
+  SPRY_NUM_F64,
+} spry_num_repr_t;
 
 typedef struct spry_ast_type spry_ast_type_t;
 
@@ -54,6 +65,10 @@ typedef struct {
   u32 count;
 } spry_ast_enum_t;
 
+typedef struct {
+  spry_num_repr_t repr;
+} spry_ast_number_t;
+
 struct spry_ast_type {
   spry_ast_kind_t kind;
   union {
@@ -61,6 +76,7 @@ struct spry_ast_type {
     spry_ast_array_t  array;
     spry_ast_union_t  uni;
     spry_ast_enum_t   enom;
+    spry_ast_number_t number;
   } as;
 };
 
@@ -69,12 +85,13 @@ typedef enum {
 
   SPRY_ERR_AST = 1000,
   SPRY_ERR_AST_EXPECTED_BOOL,
-  SPRY_ERR_AST_EXPECTED_INT,
+  SPRY_ERR_AST_EXPECTED_NUMBER,
   SPRY_ERR_AST_EXPECTED_STR,
   SPRY_ERR_AST_EXPECTED_ENUM,
   SPRY_ERR_AST_EXPECTED_ARRAY,
   SPRY_ERR_AST_EXPECTED_OBJECT,
   SPRY_ERR_AST_INT_RANGE,
+  SPRY_ERR_AST_INT_FRACTIONAL,
   SPRY_ERR_AST_INVALID_ENUM,
   SPRY_ERR_AST_UNKNOWN_KEY,
   SPRY_ERR_AST_MISSING_KEY,
@@ -86,7 +103,7 @@ typedef struct {
   spry_err_t code;
   sp_str_t   path;
   sp_str_t   detail;
-  s64        num;
+  f64        num;
   s64        min;
   s64        max;
 } spry_issue_t;

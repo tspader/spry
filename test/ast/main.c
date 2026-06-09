@@ -1,4 +1,5 @@
 #include "ast/scalar.c"
+#include "ast/number.c"
 #include "ast/object.c"
 #include "ast/array.c"
 #include "ast/union.c"

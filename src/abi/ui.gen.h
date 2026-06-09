@@ -94,10 +94,10 @@ typedef spry_node_t spry_ast_root_t;
 #define SPRY_AST_ROOT_TYPE spry_node_type
 
 static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };
-static const spry_ast_type_t spry_i32_type = { .kind = SPRY_AST_I32 };
 static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };
 
 static const spry_ast_type_t spry_direction_type;
+static const spry_ast_type_t spry_s32_type;
 static const spry_ast_type_t spry_align_type;
 static const spry_ast_type_t spry_justify_type;
 static const spry_ast_type_t spry_box_props_type;
@@ -119,6 +119,8 @@ static const spry_ast_type_t spry_node_type;
 static const c8* const spry_direction_names[] = { "row", "column" };
 static const spry_ast_type_t spry_direction_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_direction_names, .count = 2 } };
 
+static const spry_ast_type_t spry_s32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S32 } };
+
 static const c8* const spry_align_names[] = { "start", "center", "end", "stretch" };
 static const spry_ast_type_t spry_align_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_align_names, .count = 4 } };
 
@@ -127,8 +129,8 @@ static const spry_ast_type_t spry_justify_type = { .kind = SPRY_AST_ENUM, .as.en
 
 static const spry_ast_field_t spry_box_props_fields[] = {
   { .key = "direction", .offset = offsetof(spry_box_props_t, direction), .type = &spry_direction_type, .required = false, .is_ptr = false, .size = 0 },
-  { .key = "gap", .offset = offsetof(spry_box_props_t, gap), .type = &spry_i32_type, .required = false, .is_ptr = false, .size = 0 },
-  { .key = "padding", .offset = offsetof(spry_box_props_t, padding), .type = &spry_i32_type, .required = false, .is_ptr = false, .size = 0 },
+  { .key = "gap", .offset = offsetof(spry_box_props_t, gap), .type = &spry_s32_type, .required = false, .is_ptr = false, .size = 0 },
+  { .key = "padding", .offset = offsetof(spry_box_props_t, padding), .type = &spry_s32_type, .required = false, .is_ptr = false, .size = 0 },
   { .key = "align", .offset = offsetof(spry_box_props_t, align), .type = &spry_align_type, .required = false, .is_ptr = false, .size = 0 },
   { .key = "justify", .offset = offsetof(spry_box_props_t, justify), .type = &spry_justify_type, .required = false, .is_ptr = false, .size = 0 },
 };

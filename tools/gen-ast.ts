@@ -31,7 +31,30 @@ const descForward: string[] = [];
 const descDefs: string[] = [];
 const enumValues = new Map<string, string>();
 const arraysDone = new Set<string>();
+const numbersDone = new Set<string>();
 const seen = new Set<string>();
+
+const numTypes: Record<string, { cType: string; repr: string }> = {
+  int8:    { cType: "s8",  repr: "SPRY_NUM_S8"  },
+  uint8:   { cType: "u8",  repr: "SPRY_NUM_U8"  },
+  int16:   { cType: "s16", repr: "SPRY_NUM_S16" },
+  uint16:  { cType: "u16", repr: "SPRY_NUM_U16" },
+  int32:   { cType: "s32", repr: "SPRY_NUM_S32" },
+  uint32:  { cType: "u32", repr: "SPRY_NUM_U32" },
+  float32: { cType: "f32", repr: "SPRY_NUM_F32" },
+  float64: { cType: "f64", repr: "SPRY_NUM_F64" },
+};
+
+function ensureNumber(jtdType: string): { cType: string; descRef: string } {
+  const n = numTypes[jtdType];
+  const name = `spry_${n.cType}_type`;
+  if (!numbersDone.has(jtdType)) {
+    numbersDone.add(jtdType);
+    descForward.push(name);
+    descDefs.push(`static const spry_ast_type_t ${name} = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = ${n.repr} } };`);
+  }
+  return { cType: n.cType, descRef: `&${name}` };
+}
 
 function registerEnum(base: string, values: string[]) {
   const key = JSON.stringify(values);
@@ -84,10 +107,11 @@ function resolveField(parent: string, key: string, sub: Schema, required: boolea
     category = defKind[sub.ref] === "union" ? "union" : "object";
   } else if (sub.type === "string") {
     cTypeName = "sp_str_t"; descRef = "&spry_str_type"; category = "scalar";
-  } else if (sub.type === "int32") {
-    cTypeName = "s32"; descRef = "&spry_i32_type"; category = "scalar";
   } else if (sub.type === "boolean") {
     cTypeName = "bool"; descRef = "&spry_bool_type"; category = "scalar";
+  } else if (sub.type && numTypes[sub.type]) {
+    const n = ensureNumber(sub.type);
+    cTypeName = n.cType; descRef = n.descRef; category = "scalar";
   } else if (sub.type) {
     throw new Error(`gen-ast: unsupported type '${sub.type}'`);
   } else if (sub.enum) {
@@ -218,7 +242,6 @@ const enumsTs = [
 const structFwdSection = structForward.map((b) => `typedef struct ${cName(b)} ${cType(b)};`).join("\n");
 const scalarSingletons = [
   "static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };",
-  "static const spry_ast_type_t spry_i32_type = { .kind = SPRY_AST_I32 };",
   "static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };",
 ].join("\n");
 const descFwdSection = descForward.map((n) => `static const spry_ast_type_t ${n};`).join("\n");

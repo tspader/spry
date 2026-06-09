@@ -69,6 +69,6 @@ UTEST_F(array, element_error_carries_index) {
 UTEST_F(array, nested_error_path) {
   run_array_case(utest_result, (array_case_t){
     .json = "test/ast/json/array.deep.json",
-    .errors = { { .code = SPRY_ERR_AST_EXPECTED_INT, .path = "$[0].props.gap" } },
+    .errors = { { .code = SPRY_ERR_AST_EXPECTED_NUMBER, .path = "$[0].props.gap" } },
   });
 }
