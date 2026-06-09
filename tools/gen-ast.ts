@@ -13,6 +13,12 @@ for (const [name, d] of Object.entries(defs)) {
   defKind[name] = d.discriminator ? "union" : "object";
 }
 
+function hasRequiredFields(schema: Schema): boolean {
+  if (schema.ref) return hasRequiredFields(defs[schema.ref]);
+  if (schema.discriminator) return true;
+  return Object.keys(schema.properties ?? {}).length > 0;
+}
+
 const cName = (base: string) => `${PFX}_${base}`;
 const cType = (base: string) => `${PFX}_${base}_t`;
 const ident = (s: string) => s.replace(/[^A-Za-z0-9]/g, "_");
@@ -105,12 +111,10 @@ function resolveField(parent: string, key: string, sub: Schema, required: boolea
   let isPtr = false;
   let size = "0";
   let cFieldType = cTypeName;
-  if (category === "object" || category === "union") {
-    if (!required) {
-      isPtr = true;
-      cFieldType = `${cTypeName}*`;
-      size = `sizeof(${cTypeName})`;
-    }
+  if ((category === "object" || category === "union") && !required && hasRequiredFields(sub)) {
+    isPtr = true;
+    cFieldType = `${cTypeName}*`;
+    size = `sizeof(${cTypeName})`;
   }
   return { key, cFieldType, descRef, required, isPtr, size };
 }

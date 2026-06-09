@@ -34,7 +34,7 @@ typedef struct spry_interaction {
 
 typedef struct spry_box {
   sp_str_t id;
-  spry_box_props_t* props;
+  spry_box_props_t props;
   spry_interaction_t* on;
   sp_da(spry_node_t) children;
 } spry_box_t;
@@ -152,7 +152,7 @@ static const spry_ast_type_t spry_node_array_type = { .kind = SPRY_AST_ARRAY, .a
 
 static const spry_ast_field_t spry_box_fields[] = {
   { .key = "id", .offset = offsetof(spry_box_t, id), .type = &spry_str_type, .required = false, .is_ptr = false, .size = 0 },
-  { .key = "props", .offset = offsetof(spry_box_t, props), .type = &spry_box_props_type, .required = false, .is_ptr = true, .size = sizeof(spry_box_props_t) },
+  { .key = "props", .offset = offsetof(spry_box_t, props), .type = &spry_box_props_type, .required = false, .is_ptr = false, .size = 0 },
   { .key = "on", .offset = offsetof(spry_box_t, on), .type = &spry_interaction_type, .required = false, .is_ptr = true, .size = sizeof(spry_interaction_t) },
   { .key = "children", .offset = offsetof(spry_box_t, children), .type = &spry_node_array_type, .required = false, .is_ptr = false, .size = 0 },
 };

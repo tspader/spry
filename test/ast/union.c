@@ -83,12 +83,9 @@ static void compare_tree(s32* utest_result, const void* actual_v, const void* ex
   const spry_box_t* box = &node->as.box;
   ast_expect_str(utest_result, box->id, "root");
 
-  EXPECT_TRUE(box->props != SP_NULLPTR);
-  if (box->props) {
-    EXPECT_EQ((s32)SPRY_DIRECTION_COLUMN, (s32)box->props->direction);
-    EXPECT_EQ(8, box->props->gap);
-    EXPECT_EQ((s32)SPRY_JUSTIFY_BETWEEN, (s32)box->props->justify);
-  }
+  EXPECT_EQ((s32)SPRY_DIRECTION_COLUMN, (s32)box->props.direction);
+  EXPECT_EQ(8, box->props.gap);
+  EXPECT_EQ((s32)SPRY_JUSTIFY_BETWEEN, (s32)box->props.justify);
 
   EXPECT_EQ((u64)2, sp_da_size(box->children));
   if (sp_da_size(box->children) == 2) {

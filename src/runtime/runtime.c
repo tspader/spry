@@ -137,14 +137,12 @@ static u32 render_node(const spry_node_t* node) {
   switch (node->kind) {
     case SPRY_NODE_KIND_BOX: {
       const spry_box_t* box = &node->as.box;
-      if (box->props) {
-        const spry_box_props_t* props = box->props;
-        host_set_direction(handle, (u32)props->direction);
-        host_set_gap(handle, props->gap);
-        host_set_padding(handle, props->padding);
-        host_set_align(handle, (u32)props->align);
-        host_set_justify(handle, (u32)props->justify);
-      }
+      const spry_box_props_t* props = &box->props;
+      host_set_direction(handle, (u32)props->direction);
+      host_set_gap(handle, props->gap);
+      host_set_padding(handle, props->padding);
+      host_set_align(handle, (u32)props->align);
+      host_set_justify(handle, (u32)props->justify);
       sp_da_for(box->children, i) {
         host_append_child(handle, render_node(&box->children[i]));
       }
