@@ -1,0 +1,124 @@
+diff --git a/src/yyjson.c b/src/yyjson.c
+index 6973996..6b3dbe4 100644
+--- a/src/yyjson.c
++++ b/src/yyjson.c
+@@ -21,7 +21,19 @@
+  *============================================================================*/
+ 
+ #include "yyjson.h"
++#if defined(YYJSON_FREESTANDING)
++#   ifndef HUGE_VAL
++#       define HUGE_VAL (__builtin_huge_val())
++#   endif
++#   ifndef INFINITY
++#       define INFINITY (__builtin_inf())
++#   endif
++#   ifndef NAN
++#       define NAN (__builtin_nan(""))
++#   endif
++#else
+ #include <math.h> /* for `HUGE_VAL/INFINIY/NAN` macros, no libm required */
++#endif
+ 
+ 
+ 
+@@ -2099,6 +2111,7 @@ static_inline void u128_mul_add(u64 a, u64 b, u64 c, u64 *hi, u64 *lo) {
+ #   endif
+ #endif
+ 
++#if !defined(YYJSON_FREESTANDING)
+ static_inline FILE *fopen_safe(const char *path, const char *mode) {
+ #if YYJSON_MSC_VER >= 1400
+     FILE *file = NULL;
+@@ -2124,6 +2137,7 @@ static_inline usize fread_safe(void *buf, usize size, FILE *file) {
+     return fread(buf, 1, size, file);
+ #endif
+ }
++#endif
+ 
+ 
+ 
+@@ -2176,16 +2190,26 @@ static_inline void *mem_align_up(void *mem, usize align) {
+  * This is a simple libc memory allocator wrapper.
+  *============================================================================*/
+ 
++#ifndef YYJSON_DEFAULT_MALLOC
++#define YYJSON_DEFAULT_MALLOC(ctx, size) malloc(size)
++#endif
++#ifndef YYJSON_DEFAULT_REALLOC
++#define YYJSON_DEFAULT_REALLOC(ctx, ptr, old_size, size) realloc(ptr, size)
++#endif
++#ifndef YYJSON_DEFAULT_FREE
++#define YYJSON_DEFAULT_FREE(ctx, ptr) free(ptr)
++#endif
++
+ static void *default_malloc(void *ctx, usize size) {
+-    return malloc(size);
++    return YYJSON_DEFAULT_MALLOC(ctx, size);
+ }
+ 
+ static void *default_realloc(void *ctx, void *ptr, usize old_size, usize size) {
+-    return realloc(ptr, size);
++    return YYJSON_DEFAULT_REALLOC(ctx, ptr, old_size, size);
+ }
+ 
+ static void default_free(void *ctx, void *ptr) {
+-    free(ptr);
++    YYJSON_DEFAULT_FREE(ctx, ptr);
+ }
+ 
+ static const yyjson_alc YYJSON_DEFAULT_ALC = {
+@@ -6311,6 +6335,7 @@ yyjson_doc *yyjson_read_opts(char *dat, usize len,
+ #undef return_err
+ }
+ 
++#if !defined(YYJSON_FREESTANDING)
+ yyjson_doc *yyjson_read_file(const char *path,
+                              yyjson_read_flag flg,
+                              const yyjson_alc *alc_ptr,
+@@ -6434,6 +6459,7 @@ yyjson_doc *yyjson_read_fp(FILE *file,
+ 
+ #undef return_err
+ }
++#endif
+ 
+ const char *yyjson_read_number(const char *dat,
+                                yyjson_val *val,
+diff --git a/src/yyjson.h b/src/yyjson.h
+index 5896037..3551c2c 100644
+--- a/src/yyjson.h
++++ b/src/yyjson.h
+@@ -35,12 +35,27 @@
+  * MARK: - Header Files
+  *============================================================================*/
+ 
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <stddef.h>
+-#include <limits.h>
+-#include <string.h>
+-#include <float.h>
++#if defined(YYJSON_FREESTANDING)
++#   include <stddef.h>
++#   include <limits.h>
++#   include <float.h>
++typedef struct yyjson_freestanding_file FILE;
++void  *memcpy(void *dst, const void *src, size_t n);
++void  *memmove(void *dst, const void *src, size_t n);
++void  *memset(void *dst, int c, size_t n);
++int    memcmp(const void *a, const void *b, size_t n);
++size_t strlen(const char *s);
++void  *malloc(size_t size);
++void  *realloc(void *ptr, size_t size);
++void   free(void *ptr);
++#else
++#   include <stdio.h>
++#   include <stdlib.h>
++#   include <stddef.h>
++#   include <limits.h>
++#   include <string.h>
++#   include <float.h>
++#endif
+ 
+ 
+ 

@@ -36,3 +36,28 @@ foreach(dep ${DEPS})
   endif()
   execute_process(COMMAND git -C "${dest}" checkout -q FETCH_HEAD)
 endforeach()
+
+set(PATCH_DIR "${CMAKE_CURRENT_LIST_DIR}/patches")
+foreach(dep ${DEPS})
+  string(REPLACE "|" ";" parts "${dep}")
+  list(GET parts 0 name)
+  set(dest "${SOURCE_ROOT}/${name}")
+
+  file(GLOB patches "${PATCH_DIR}/${name}*.patch")
+  foreach(patch ${patches})
+    execute_process(
+      COMMAND git -C "${dest}" apply --check "${patch}"
+      RESULT_VARIABLE can_apply ERROR_QUIET)
+    if(can_apply EQUAL 0)
+      message(STATUS "patch: applying ${patch}")
+      execute_process(
+        COMMAND git -C "${dest}" apply "${patch}"
+        RESULT_VARIABLE rc)
+      if(NOT rc EQUAL 0)
+        message(FATAL_ERROR "patch: failed to apply ${patch}")
+      endif()
+    else()
+      message(STATUS "patch: ${name} already patched (${patch})")
+    endif()
+  endforeach()
+endforeach()

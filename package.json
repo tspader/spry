@@ -12,7 +12,6 @@
     "web": "make all && bun run example/web/server.ts",
     "native": "make all && d=$PWD && cd .build/store/$(uname -m)-linux-gnu/gtk && ./app \"$d/example/ui/tree.json\"",
     "smoke": "make all && .build/store/test/native-smoke .build/store/test/runtime.wasm example/ui/tree.json",
-    "test:yyjson": "make all && .build/store/test/yyjson-smoke && bun run tools/run-yyjson-wasm.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

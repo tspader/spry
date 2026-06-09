@@ -55,19 +55,17 @@ set(RUNTIME_WASM ${_rt}/runtime.wasm)
 add_custom_command(
   OUTPUT ${RUNTIME_WASM}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${_rt}
-  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined -DSP_ASSERT_LEVEL=SP_ASSERT_TRAP ${YYJSON_DEFS}
-          ${INC} -I${ROOT}/src -I${ROOT}/src/runtime/wasm_libc -I${YYJSON_DIR}
+  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined -DSP_ASSERT_LEVEL=SP_ASSERT_TRAP -DYYJSON_FREESTANDING ${YYJSON_DEFS}
+          ${INC} -I${ROOT}/src -I${YYJSON_DIR}
           -c ${ROOT}/src/runtime/runtime.c -o ${_rt}/runtime.o
-  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined -DSP_ASSERT_LEVEL=SP_ASSERT_TRAP ${YYJSON_DEFS}
-          ${INC} -I${ROOT}/src/runtime/wasm_libc -I${YYJSON_DIR}
+  COMMAND zig cc --target=wasm32-freestanding -fno-sanitize=undefined -DSP_ASSERT_LEVEL=SP_ASSERT_TRAP -DYYJSON_FREESTANDING ${YYJSON_DEFS}
+          ${INC} -I${YYJSON_DIR}
           -c ${ROOT}/src/ast/ast.c -o ${_rt}/ast.o
-  COMMAND zig cc --target=wasm32-wasi -O2 ${YYJSON_DEFS} -I${YYJSON_DIR}
+  COMMAND zig cc --target=wasm32-freestanding -O2 -DYYJSON_FREESTANDING ${YYJSON_DEFS} -I${YYJSON_DIR}
           -c ${YYJSON_DIR}/yyjson.c -o ${_rt}/yyjson.o
-  COMMAND zig cc --target=wasm32-freestanding -O2
-          -c ${ROOT}/src/runtime/wasm_shims.c -o ${_rt}/shims.o
   COMMAND zig cc --target=wasm32-freestanding -nostdlib -Wl,--no-entry,--export-dynamic
-          -o ${RUNTIME_WASM} ${_rt}/runtime.o ${_rt}/ast.o ${_rt}/yyjson.o ${_rt}/shims.o
-  DEPENDS ${ROOT}/src/runtime/runtime.c ${ROOT}/src/ast/ast.c ${ROOT}/src/runtime/wasm_shims.c
+          -o ${RUNTIME_WASM} ${_rt}/runtime.o ${_rt}/ast.o ${_rt}/yyjson.o
+  DEPENDS ${ROOT}/src/runtime/runtime.c ${ROOT}/src/ast/ast.c
           ${ROOT}/src/abi/ui.gen.h ${YYJSON_DIR}/yyjson.c ${HEADERS}
   VERBATIM)
 

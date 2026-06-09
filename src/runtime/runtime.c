@@ -249,3 +249,26 @@ void rt_deliver(u32 token, const c8* ptr, u32 len) {
   host_clear_children(target);
   host_append_child(target, render_node(&node));
 }
+
+void* malloc(size_t size) {
+  return sp_sys_alloc(size);
+}
+
+void* realloc(void* ptr, size_t size) {
+  (void)ptr; (void)size;
+  __builtin_trap();
+}
+
+void free(void* ptr) {
+  (void)ptr;
+}
+
+size_t strlen(const char* s) {
+  const char* p = s;
+  while (*p) p++;
+  return (size_t)(p - s);
+}
+
+__int128 __multi3(__int128 a, __int128 b) {
+  return a * b;
+}
