@@ -1,5 +1,7 @@
 const inPath = new URL("../src/abi/ui.jtd.json", import.meta.url);
 const outPath = new URL("../src/abi/ui.gen.h", import.meta.url);
+const enumsHeaderPath = new URL("../src/abi/ui.enums.gen.h", import.meta.url);
+const enumsTsPath = new URL("../src/abi/ui.enums.gen.ts", import.meta.url);
 const PFX = "spry";
 
 type Schema = any;
@@ -193,6 +195,22 @@ const enumSection = enumTypedefs
   .map((e) => `typedef enum {\n${e.consts.map((c) => `  ${enumConst(e.base, c)},`).join("\n")}\n} ${cType(e.base)};`)
   .join("\n\n");
 
+const enumsHeader = [
+  "#ifndef SPRY_UI_ENUMS_GEN_H",
+  "#define SPRY_UI_ENUMS_GEN_H",
+  "",
+  enumSection,
+  "",
+  "#endif",
+  "",
+].join("\n");
+
+const enumsTs = [
+  "// Generated from src/abi/ui.jtd.json by tools/gen-ast.ts. Do not edit.",
+  ...enumTypedefs.flatMap((e) => e.consts.map((c, i) => `export const ${enumConst(e.base, c)} = ${i};`)),
+  "",
+].join("\n");
+
 const structFwdSection = structForward.map((b) => `typedef struct ${cName(b)} ${cType(b)};`).join("\n");
 const scalarSingletons = [
   "static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };",
@@ -206,8 +224,7 @@ const out = [
   "#define SPRY_UI_GEN_H",
   "",
   '#include "spry/ast.h"',
-  "",
-  enumSection,
+  '#include "abi/ui.enums.gen.h"',
   "",
   structFwdSection,
   "",
@@ -226,5 +243,10 @@ const out = [
   "",
 ].join("\n");
 
+await Bun.write(enumsHeaderPath, enumsHeader);
+await Bun.write(enumsTsPath, enumsTs);
 await Bun.write(outPath, out);
-console.log(`gen-ast: ${structForward.length} structs, ${enumTypedefs.length} enums -> src/abi/ui.gen.h`);
+console.log(
+  `gen-ast: ${structForward.length} structs, ${enumTypedefs.length} enums ` +
+    `-> src/abi/ui.gen.h + ui.enums.gen.h + ui.enums.gen.ts`,
+);

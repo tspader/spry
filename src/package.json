@@ -7,7 +7,9 @@
     "./host/web": "./host/web/host.ts",
     "./backend": "./backend/backend.ts",
     "./backend/web": "./backend/web/dom-backend.ts",
-    "./abi": "./abi/abi.gen.ts"
+    "./abi": "./abi/abi.gen.ts",
+    "./ui-enums": "./abi/ui.enums.gen.ts",
+    "./schema": "./abi/schema.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"

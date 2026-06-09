@@ -1,0 +1,19 @@
+// Generated from src/abi/ui.jtd.json by tools/gen-ast.ts. Do not edit.
+export const SPRY_NODE_KIND_BOX = 0;
+export const SPRY_NODE_KIND_TEXT = 1;
+export const SPRY_NODE_KIND_LINK = 2;
+export const SPRY_NODE_KIND_INPUT = 3;
+export const SPRY_NODE_KIND_BUTTON = 4;
+export const SPRY_DIRECTION_ROW = 0;
+export const SPRY_DIRECTION_COLUMN = 1;
+export const SPRY_ALIGN_START = 0;
+export const SPRY_ALIGN_CENTER = 1;
+export const SPRY_ALIGN_END = 2;
+export const SPRY_ALIGN_STRETCH = 3;
+export const SPRY_JUSTIFY_START = 0;
+export const SPRY_JUSTIFY_CENTER = 1;
+export const SPRY_JUSTIFY_END = 2;
+export const SPRY_JUSTIFY_BETWEEN = 3;
+export const SPRY_EVENT_CLICK = 0;
+export const SPRY_EVENT_SUBMIT = 1;
+export const SPRY_SWAP_INNER = 0;

@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { Node } from "spry/schema";
 
 const root = new URL("../../", import.meta.url);
 const webDir = new URL(".build/store/web/example/", root);
@@ -19,7 +20,8 @@ app.get("/tree", serve(treeFile, "application/json; charset=utf-8"));
 app.post("/api/greet", async (c) => {
   const body = await c.req.text();
   const name = new URLSearchParams(body).get("name") || "stranger";
-  return c.json({ kind: "text", props: { text: `Hello, ${name}!` } });
+  const fragment = Node.parse({ kind: "text", props: { text: `Hello, ${name}!` } });
+  return c.json(fragment);
 });
 
 export default { port: 3000, fetch: app.fetch };

@@ -49,20 +49,81 @@ static wasm_trap_t* cb_create(void* env, const wasm_val_vec_t* args, wasm_val_ve
   return SP_NULLPTR;
 }
 
-static wasm_trap_t* cb_set_attr(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+static wasm_trap_t* cb_set_direction(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   (void)results;
   wasm_host_t* h = env;
-  h->backend->set_attr(h->backend->self, host_ref(h, (u32)args->data[0].of.i32),
-                       (u32)args->data[1].of.i32, args->data[2].of.i32);
+  h->backend->set_direction(h->backend->self, host_ref(h, (u32)args->data[0].of.i32), (u32)args->data[1].of.i32);
   return SP_NULLPTR;
 }
 
-static wasm_trap_t* cb_set_attr_str(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+static wasm_trap_t* cb_set_gap(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   (void)results;
   wasm_host_t* h = env;
-  sp_str_t value = host_str(h, (u32)args->data[2].of.i32, (u32)args->data[3].of.i32);
-  h->backend->set_attr_str(h->backend->self, host_ref(h, (u32)args->data[0].of.i32),
-                           (u32)args->data[1].of.i32, value);
+  h->backend->set_gap(h->backend->self, host_ref(h, (u32)args->data[0].of.i32), args->data[1].of.i32);
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_padding(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_padding(h->backend->self, host_ref(h, (u32)args->data[0].of.i32), args->data[1].of.i32);
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_align(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_align(h->backend->self, host_ref(h, (u32)args->data[0].of.i32), (u32)args->data[1].of.i32);
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_justify(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_justify(h->backend->self, host_ref(h, (u32)args->data[0].of.i32), (u32)args->data[1].of.i32);
+  return SP_NULLPTR;
+}
+
+static u32 str_handle(const wasm_val_vec_t* args) {
+  return (u32)args->data[0].of.i32;
+}
+
+static sp_str_t str_value(wasm_host_t* h, const wasm_val_vec_t* args) {
+  return host_str(h, (u32)args->data[1].of.i32, (u32)args->data[2].of.i32);
+}
+
+static wasm_trap_t* cb_set_text(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_text(h->backend->self, host_ref(h, str_handle(args)), str_value(h, args));
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_href(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_href(h->backend->self, host_ref(h, str_handle(args)), str_value(h, args));
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_value(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_value(h->backend->self, host_ref(h, str_handle(args)), str_value(h, args));
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_name(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_name(h->backend->self, host_ref(h, str_handle(args)), str_value(h, args));
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_set_placeholder(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  h->backend->set_placeholder(h->backend->self, host_ref(h, str_handle(args)), str_value(h, args));
   return SP_NULLPTR;
 }
 
@@ -131,17 +192,25 @@ typedef struct {
 } host_fn_def_t;
 
 static const host_fn_def_t HOST_FNS[] = {
-  { "capabilities",   cb_caps,           0, 1 },
-  { "create",         cb_create,         1, 1 },
-  { "set_attr",       cb_set_attr,       3, 0 },
-  { "set_attr_str",   cb_set_attr_str,   4, 0 },
-  { "append_child",   cb_append,         2, 0 },
-  { "set_root",       cb_set_root,       1, 0 },
-  { "on_event",       cb_on_event,       3, 0 },
-  { "submit",         cb_submit,         5, 0 },
-  { "clear_children", cb_clear_children, 1, 0 },
-  { "get_value",      cb_get_value,      3, 1 },
-  { "fatal",          cb_fatal,          2, 0 },
+  { "capabilities",   cb_caps,            0, 1 },
+  { "create",         cb_create,          1, 1 },
+  { "set_direction",  cb_set_direction,   2, 0 },
+  { "set_gap",        cb_set_gap,         2, 0 },
+  { "set_padding",    cb_set_padding,     2, 0 },
+  { "set_align",      cb_set_align,       2, 0 },
+  { "set_justify",    cb_set_justify,     2, 0 },
+  { "set_text",       cb_set_text,        3, 0 },
+  { "set_href",       cb_set_href,        3, 0 },
+  { "set_value",      cb_set_value,       3, 0 },
+  { "set_name",       cb_set_name,        3, 0 },
+  { "set_placeholder", cb_set_placeholder, 3, 0 },
+  { "append_child",   cb_append,          2, 0 },
+  { "set_root",       cb_set_root,        1, 0 },
+  { "on_event",       cb_on_event,        3, 0 },
+  { "submit",         cb_submit,          5, 0 },
+  { "clear_children", cb_clear_children,  1, 0 },
+  { "get_value",      cb_get_value,       3, 1 },
+  { "fatal",          cb_fatal,           2, 0 },
 };
 
 static const u32 HOST_FN_COUNT = (u32)sp_carr_len(HOST_FNS);

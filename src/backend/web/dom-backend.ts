@@ -1,23 +1,24 @@
 import type { Backend, HostIface } from "spry/backend";
 import * as abi from "spry/abi";
+import * as ui from "spry/ui-enums";
 
 const ALIGN: Record<number, string> = {
-  [abi.ALIGN_START]: "flex-start",
-  [abi.ALIGN_CENTER]: "center",
-  [abi.ALIGN_END]: "flex-end",
-  [abi.ALIGN_STRETCH]: "stretch",
+  [ui.SPRY_ALIGN_START]: "flex-start",
+  [ui.SPRY_ALIGN_CENTER]: "center",
+  [ui.SPRY_ALIGN_END]: "flex-end",
+  [ui.SPRY_ALIGN_STRETCH]: "stretch",
 };
 
 const JUSTIFY: Record<number, string> = {
-  [abi.JUSTIFY_START]: "flex-start",
-  [abi.JUSTIFY_CENTER]: "center",
-  [abi.JUSTIFY_END]: "flex-end",
-  [abi.JUSTIFY_BETWEEN]: "space-between",
+  [ui.SPRY_JUSTIFY_START]: "flex-start",
+  [ui.SPRY_JUSTIFY_CENTER]: "center",
+  [ui.SPRY_JUSTIFY_END]: "flex-end",
+  [ui.SPRY_JUSTIFY_BETWEEN]: "space-between",
 };
 
 const EVENT_NAME: Record<number, string> = {
-  [abi.EVENT_CLICK]: "click",
-  [abi.EVENT_SUBMIT]: "submit",
+  [ui.SPRY_EVENT_CLICK]: "click",
+  [ui.SPRY_EVENT_SUBMIT]: "submit",
 };
 
 export function domBackend(root: HTMLElement, iface: HostIface): Backend<HTMLElement> {
@@ -28,62 +29,62 @@ export function domBackend(root: HTMLElement, iface: HostIface): Backend<HTMLEle
 
     createElement(kind) {
       switch (kind) {
-        case abi.EL_BOX: {
+        case ui.SPRY_NODE_KIND_BOX: {
           const el = document.createElement("div");
           el.style.display = "flex";
           return el;
         }
-        case abi.EL_TEXT:
+        case ui.SPRY_NODE_KIND_TEXT:
           return document.createElement("span");
-        case abi.EL_LINK:
+        case ui.SPRY_NODE_KIND_LINK:
           return document.createElement("a");
-        case abi.EL_INPUT:
+        case ui.SPRY_NODE_KIND_INPUT:
           return document.createElement("input");
-        case abi.EL_BUTTON:
+        case ui.SPRY_NODE_KIND_BUTTON:
           return document.createElement("button");
         default:
           throw new Error(`dom-backend: unknown element kind ${kind}`);
       }
     },
 
-    setAttr(node, attr, value) {
-      switch (attr) {
-        case abi.ATTR_DIRECTION:
-          node.style.flexDirection = value === abi.DIR_COLUMN ? "column" : "row";
-          break;
-        case abi.ATTR_GAP:
-          node.style.gap = `${value}px`;
-          break;
-        case abi.ATTR_PADDING:
-          node.style.padding = `${value}px`;
-          break;
-        case abi.ATTR_ALIGN:
-          node.style.alignItems = ALIGN[value] ?? "flex-start";
-          break;
-        case abi.ATTR_JUSTIFY:
-          node.style.justifyContent = JUSTIFY[value] ?? "flex-start";
-          break;
-      }
+    setDirection(node, value) {
+      node.style.flexDirection = value === ui.SPRY_DIRECTION_COLUMN ? "column" : "row";
     },
 
-    setAttrStr(node, attr, value) {
-      switch (attr) {
-        case abi.SATTR_TEXT:
-          node.textContent = value;
-          break;
-        case abi.SATTR_HREF:
-          (node as HTMLAnchorElement).href = value;
-          break;
-        case abi.SATTR_VALUE:
-          (node as HTMLInputElement).value = value;
-          break;
-        case abi.SATTR_NAME:
-          (node as HTMLInputElement).name = value;
-          break;
-        case abi.SATTR_PLACEHOLDER:
-          (node as HTMLInputElement).placeholder = value;
-          break;
-      }
+    setGap(node, value) {
+      node.style.gap = `${value}px`;
+    },
+
+    setPadding(node, value) {
+      node.style.padding = `${value}px`;
+    },
+
+    setAlign(node, value) {
+      node.style.alignItems = ALIGN[value] ?? "flex-start";
+    },
+
+    setJustify(node, value) {
+      node.style.justifyContent = JUSTIFY[value] ?? "flex-start";
+    },
+
+    setText(node, value) {
+      node.textContent = value;
+    },
+
+    setHref(node, value) {
+      (node as HTMLAnchorElement).href = value;
+    },
+
+    setValue(node, value) {
+      (node as HTMLInputElement).value = value;
+    },
+
+    setName(node, value) {
+      (node as HTMLInputElement).name = value;
+    },
+
+    setPlaceholder(node, value) {
+      (node as HTMLInputElement).placeholder = value;
     },
 
     appendChild(parent, child) {

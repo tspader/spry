@@ -1,0 +1,1 @@
+{ "kind": "box", "id": "root", "props": { "direction": "column", "gap": 8, "padding": 16, "align": "stretch", "justify": "between" }, "children": [ { "kind": "text", "props": { "text": "hi" } }, { "kind": "button", "props": { "text": "go" }, "on": { "event": "click", "action": "/a", "target": "root", "swap": "inner" } } ] }

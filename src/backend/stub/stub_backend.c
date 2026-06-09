@@ -17,15 +17,24 @@ static void* stub_create(void* self, u32 kind) {
   return (void*)(u64)id;
 }
 
-static void stub_set_attr(void* self, void* node, u32 attr, s32 value) {
-  (void)self;
-  sp_log("set_attr #{} attr={} val={}", sp_fmt_int((s64)(u64)node), sp_fmt_int(attr), sp_fmt_int(value));
+static void stub_set_int(void* node, const c8* name, s32 value) {
+  sp_log("{} #{} = {}", sp_fmt_cstr(name), sp_fmt_int((s64)(u64)node), sp_fmt_int(value));
 }
 
-static void stub_set_attr_str(void* self, void* node, u32 attr, sp_str_t value) {
-  (void)self;
-  sp_log("set_attr_str #{} attr={} \"{}\"", sp_fmt_int((s64)(u64)node), sp_fmt_int(attr), sp_fmt_str(value));
+static void stub_set_str(void* node, const c8* name, sp_str_t value) {
+  sp_log("{} #{} = \"{}\"", sp_fmt_cstr(name), sp_fmt_int((s64)(u64)node), sp_fmt_str(value));
 }
+
+static void stub_set_direction(void* self, void* node, u32 value) { (void)self; stub_set_int(node, "set_direction", (s32)value); }
+static void stub_set_gap(void* self, void* node, s32 value) { (void)self; stub_set_int(node, "set_gap", value); }
+static void stub_set_padding(void* self, void* node, s32 value) { (void)self; stub_set_int(node, "set_padding", value); }
+static void stub_set_align(void* self, void* node, u32 value) { (void)self; stub_set_int(node, "set_align", (s32)value); }
+static void stub_set_justify(void* self, void* node, u32 value) { (void)self; stub_set_int(node, "set_justify", (s32)value); }
+static void stub_set_text(void* self, void* node, sp_str_t value) { (void)self; stub_set_str(node, "set_text", value); }
+static void stub_set_href(void* self, void* node, sp_str_t value) { (void)self; stub_set_str(node, "set_href", value); }
+static void stub_set_value(void* self, void* node, sp_str_t value) { (void)self; stub_set_str(node, "set_value", value); }
+static void stub_set_name(void* self, void* node, sp_str_t value) { (void)self; stub_set_str(node, "set_name", value); }
+static void stub_set_placeholder(void* self, void* node, sp_str_t value) { (void)self; stub_set_str(node, "set_placeholder", value); }
 
 static void stub_append(void* self, void* parent, void* child) {
   (void)self;
@@ -72,8 +81,16 @@ backend_t stub_backend_make(sp_mem_t mem) {
     .self = s,
     .capabilities = stub_caps,
     .create_element = stub_create,
-    .set_attr = stub_set_attr,
-    .set_attr_str = stub_set_attr_str,
+    .set_direction = stub_set_direction,
+    .set_gap = stub_set_gap,
+    .set_padding = stub_set_padding,
+    .set_align = stub_set_align,
+    .set_justify = stub_set_justify,
+    .set_text = stub_set_text,
+    .set_href = stub_set_href,
+    .set_value = stub_set_value,
+    .set_name = stub_set_name,
+    .set_placeholder = stub_set_placeholder,
     .append_child = stub_append,
     .set_root = stub_set_root,
     .on_event = stub_on_event,

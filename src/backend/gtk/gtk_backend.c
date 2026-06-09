@@ -1,6 +1,7 @@
 #include <gtk/gtk.h>
 #include "sp.h"
 #include "spry/abi.h"
+#include "abi/ui.enums.gen.h"
 #include "spry/backend/backend.h"
 #include "spry/backend/gtk.h"
 
@@ -18,12 +19,12 @@ typedef struct {
   sp_str_t json;
 } gtk_deliver_t;
 
-static GtkAlign align_to_gtk(s32 value) {
+static GtkAlign align_to_gtk(spry_align_t value) {
   switch (value) {
-    case ALIGN_START:   return GTK_ALIGN_START;
-    case ALIGN_CENTER:  return GTK_ALIGN_CENTER;
-    case ALIGN_END:     return GTK_ALIGN_END;
-    case ALIGN_STRETCH: return GTK_ALIGN_FILL;
+    case SPRY_ALIGN_START:   return GTK_ALIGN_START;
+    case SPRY_ALIGN_CENTER:  return GTK_ALIGN_CENTER;
+    case SPRY_ALIGN_END:     return GTK_ALIGN_END;
+    case SPRY_ALIGN_STRETCH: return GTK_ALIGN_FILL;
   }
   return GTK_ALIGN_START;
 }
@@ -35,64 +36,91 @@ static u32 gtk_caps(void* self) {
 
 static void* gtk_create(void* self, u32 kind) {
   (void)self;
-  switch (kind) {
-    case EL_BOX:    return gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    case EL_TEXT:   return gtk_label_new(SP_NULLPTR);
-    case EL_LINK:   return gtk_link_button_new("");
-    case EL_INPUT:  return gtk_entry_new();
-    case EL_BUTTON: return gtk_button_new();
+  switch ((spry_node_kind_t)kind) {
+    case SPRY_NODE_KIND_BOX:    return gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    case SPRY_NODE_KIND_TEXT:   return gtk_label_new(SP_NULLPTR);
+    case SPRY_NODE_KIND_LINK:   return gtk_link_button_new("");
+    case SPRY_NODE_KIND_INPUT:  return gtk_entry_new();
+    case SPRY_NODE_KIND_BUTTON: return gtk_button_new();
   }
   return SP_NULLPTR;
 }
 
-static void gtk_set_attr(void* self, void* node, u32 attr, s32 value) {
+static void gtk_set_direction(void* self, void* node, u32 value) {
   (void)self;
-  GtkWidget* w = node;
-  switch (attr) {
-    case ATTR_DIRECTION:
-      gtk_orientable_set_orientation(GTK_ORIENTABLE(w),
-        value == DIR_COLUMN ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
-      break;
-    case ATTR_GAP:
-      gtk_box_set_spacing(GTK_BOX(w), value);
-      break;
-    case ATTR_PADDING:
-      gtk_widget_set_margin_start(w, value);
-      gtk_widget_set_margin_end(w, value);
-      gtk_widget_set_margin_top(w, value);
-      gtk_widget_set_margin_bottom(w, value);
-      break;
-    case ATTR_ALIGN:
-      g_object_set_data(G_OBJECT(w), "demo-align", GINT_TO_POINTER(value + 1));
-      break;
-    case ATTR_JUSTIFY:
-      g_object_set_data(G_OBJECT(w), "demo-justify", GINT_TO_POINTER(value + 1));
-      break;
-  }
+  gtk_orientable_set_orientation(GTK_ORIENTABLE((GtkWidget*)node),
+    value == SPRY_DIRECTION_COLUMN ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
 }
 
-static void gtk_set_attr_str(void* self, void* node, u32 attr, sp_str_t value) {
+static void gtk_set_gap(void* self, void* node, s32 value) {
+  (void)self;
+  gtk_box_set_spacing(GTK_BOX((GtkWidget*)node), value);
+}
+
+static void gtk_set_padding(void* self, void* node, s32 value) {
+  (void)self;
+  GtkWidget* w = node;
+  gtk_widget_set_margin_start(w, value);
+  gtk_widget_set_margin_end(w, value);
+  gtk_widget_set_margin_top(w, value);
+  gtk_widget_set_margin_bottom(w, value);
+}
+
+static void gtk_set_align(void* self, void* node, u32 value) {
+  (void)self;
+  g_object_set_data(G_OBJECT((GtkWidget*)node), "demo-align", GINT_TO_POINTER((s32)value + 1));
+}
+
+static void gtk_set_justify(void* self, void* node, u32 value) {
+  (void)self;
+  g_object_set_data(G_OBJECT((GtkWidget*)node), "demo-justify", GINT_TO_POINTER((s32)value + 1));
+}
+
+static c8* gtk_scratch_cstr(gtk_ctx_t* ctx, sp_mem_arena_marker_t* scratch, sp_str_t value) {
+  *scratch = sp_mem_begin_scratch_for(ctx->mem);
+  return sp_str_to_cstr(scratch->mem, value);
+}
+
+static void gtk_set_text(void* self, void* node, sp_str_t value) {
   gtk_ctx_t* ctx = self;
   GtkWidget* w = node;
-  sp_mem_arena_marker_t scratch = sp_mem_begin_scratch_for(ctx->mem);
-  c8* cstr = sp_str_to_cstr(scratch.mem, value);
-  switch (attr) {
-    case SATTR_TEXT:
-      if (GTK_IS_LABEL(w)) gtk_label_set_text(GTK_LABEL(w), cstr);
-      else if (GTK_IS_BUTTON(w)) gtk_button_set_label(GTK_BUTTON(w), cstr);
-      break;
-    case SATTR_HREF:
-      if (GTK_IS_LINK_BUTTON(w)) gtk_link_button_set_uri(GTK_LINK_BUTTON(w), cstr);
-      break;
-    case SATTR_VALUE:
-      if (GTK_IS_EDITABLE(w)) gtk_editable_set_text(GTK_EDITABLE(w), cstr);
-      break;
-    case SATTR_NAME:
-      break;
-    case SATTR_PLACEHOLDER:
-      if (GTK_IS_ENTRY(w)) gtk_entry_set_placeholder_text(GTK_ENTRY(w), cstr);
-      break;
-  }
+  sp_mem_arena_marker_t scratch;
+  c8* cstr = gtk_scratch_cstr(ctx, &scratch, value);
+  if (GTK_IS_LABEL(w)) gtk_label_set_text(GTK_LABEL(w), cstr);
+  else if (GTK_IS_BUTTON(w)) gtk_button_set_label(GTK_BUTTON(w), cstr);
+  sp_mem_end_scratch(scratch);
+}
+
+static void gtk_set_href(void* self, void* node, sp_str_t value) {
+  gtk_ctx_t* ctx = self;
+  GtkWidget* w = node;
+  sp_mem_arena_marker_t scratch;
+  c8* cstr = gtk_scratch_cstr(ctx, &scratch, value);
+  if (GTK_IS_LINK_BUTTON(w)) gtk_link_button_set_uri(GTK_LINK_BUTTON(w), cstr);
+  sp_mem_end_scratch(scratch);
+}
+
+static void gtk_set_value(void* self, void* node, sp_str_t value) {
+  gtk_ctx_t* ctx = self;
+  GtkWidget* w = node;
+  sp_mem_arena_marker_t scratch;
+  c8* cstr = gtk_scratch_cstr(ctx, &scratch, value);
+  if (GTK_IS_EDITABLE(w)) gtk_editable_set_text(GTK_EDITABLE(w), cstr);
+  sp_mem_end_scratch(scratch);
+}
+
+static void gtk_set_name(void* self, void* node, sp_str_t value) {
+  (void)self;
+  (void)node;
+  (void)value;
+}
+
+static void gtk_set_placeholder(void* self, void* node, sp_str_t value) {
+  gtk_ctx_t* ctx = self;
+  GtkWidget* w = node;
+  sp_mem_arena_marker_t scratch;
+  c8* cstr = gtk_scratch_cstr(ctx, &scratch, value);
+  if (GTK_IS_ENTRY(w)) gtk_entry_set_placeholder_text(GTK_ENTRY(w), cstr);
   sp_mem_end_scratch(scratch);
 }
 
@@ -109,8 +137,8 @@ static void apply_child_layout(GtkWidget* parent, GtkWidget* child) {
 
   if (justify_raw) {
     s32 j = justify_raw - 1;
-    gboolean expand = (j == JUSTIFY_CENTER || j == JUSTIFY_END || j == JUSTIFY_BETWEEN);
-    GtkAlign a = (j == JUSTIFY_END) ? GTK_ALIGN_END : GTK_ALIGN_CENTER;
+    gboolean expand = (j == SPRY_JUSTIFY_CENTER || j == SPRY_JUSTIFY_END || j == SPRY_JUSTIFY_BETWEEN);
+    GtkAlign a = (j == SPRY_JUSTIFY_END) ? GTK_ALIGN_END : GTK_ALIGN_CENTER;
     if (o == GTK_ORIENTATION_HORIZONTAL) {
       gtk_widget_set_hexpand(child, expand);
       gtk_widget_set_halign(child, a);
@@ -142,9 +170,9 @@ static void gtk_on_event(void* self, void* node, u32 event, u32 token) {
   gtk_ctx_t* ctx = self;
   GtkWidget* w = node;
   g_object_set_data(G_OBJECT(w), "demo-token", GUINT_TO_POINTER(token));
-  switch (event) {
-    case EVENT_CLICK:  g_signal_connect(w, "clicked", G_CALLBACK(on_widget_event), ctx); break;
-    case EVENT_SUBMIT: g_signal_connect(w, "activate", G_CALLBACK(on_widget_event), ctx); break;
+  switch ((spry_event_t)event) {
+    case SPRY_EVENT_CLICK:  g_signal_connect(w, "clicked", G_CALLBACK(on_widget_event), ctx); break;
+    case SPRY_EVENT_SUBMIT: g_signal_connect(w, "activate", G_CALLBACK(on_widget_event), ctx); break;
   }
 }
 
@@ -202,8 +230,16 @@ backend_t gtk_backend_make(sp_mem_t mem, GtkWindow* window, host_iface_t host, g
     .self = ctx,
     .capabilities = gtk_caps,
     .create_element = gtk_create,
-    .set_attr = gtk_set_attr,
-    .set_attr_str = gtk_set_attr_str,
+    .set_direction = gtk_set_direction,
+    .set_gap = gtk_set_gap,
+    .set_padding = gtk_set_padding,
+    .set_align = gtk_set_align,
+    .set_justify = gtk_set_justify,
+    .set_text = gtk_set_text,
+    .set_href = gtk_set_href,
+    .set_value = gtk_set_value,
+    .set_name = gtk_set_name,
+    .set_placeholder = gtk_set_placeholder,
     .append_child = gtk_append,
     .set_root = gtk_set_root,
     .on_event = gtk_on_event,

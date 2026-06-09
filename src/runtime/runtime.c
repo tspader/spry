@@ -5,6 +5,7 @@
 #include "spry/abi.h"
 
 #include "yyjson.h"
+#include "abi/ui.gen.h"
 
 static sp_mem_t g_mem;
 static bool g_mem_init = false;
@@ -22,11 +23,6 @@ static yyjson_doc* rt_parse(const c8* ptr, u32 len) {
   yyjson_alc alc;
   if (!yyjson_alc_pool_init(&alc, g_json_pool, sizeof(g_json_pool))) return SP_NULLPTR;
   return yyjson_read_opts((c8*)ptr, len, 0, &alc, SP_NULLPTR);
-}
-
-static sp_str_t rt_str(yyjson_val* v) {
-  if (!yyjson_is_str(v)) return sp_zero_s(sp_str_t);
-  return (sp_str_t) { .data = yyjson_get_str(v), .len = (u32)yyjson_get_len(v) };
 }
 
 typedef struct rt_id {
@@ -104,112 +100,78 @@ static rt_token_t* rt_token_at(u32 token) {
   return node;
 }
 
-static bool node_is(yyjson_val* v, const c8* kind) {
-  return yyjson_equals_str(v, kind);
-}
-
-static u32 dir_enum(yyjson_val* v) {
-  return node_is(v, "column") ? DIR_COLUMN : DIR_ROW;
-}
-
-static u32 align_enum(yyjson_val* v) {
-  if (node_is(v, "center")) return ALIGN_CENTER;
-  if (node_is(v, "end")) return ALIGN_END;
-  if (node_is(v, "stretch")) return ALIGN_STRETCH;
-  return ALIGN_START;
-}
-
-static u32 justify_enum(yyjson_val* v) {
-  if (node_is(v, "center")) return JUSTIFY_CENTER;
-  if (node_is(v, "end")) return JUSTIFY_END;
-  if (node_is(v, "between")) return JUSTIFY_BETWEEN;
-  return JUSTIFY_START;
-}
-
-static void set_str_prop(u32 handle, yyjson_val* props, const c8* key, u32 sattr) {
-  yyjson_val* v = yyjson_obj_get(props, key);
-  if (yyjson_is_str(v)) {
-    sp_str_t s = rt_str(v);
-    host_set_attr_str(handle, sattr, s.data, s.len);
+static sp_str_t node_id(const spry_node_t* node) {
+  switch (node->kind) {
+    case SPRY_NODE_KIND_BOX:    return node->as.box.id;
+    case SPRY_NODE_KIND_TEXT:   return node->as.text.id;
+    case SPRY_NODE_KIND_LINK:   return node->as.link.id;
+    case SPRY_NODE_KIND_INPUT:  return node->as.input.id;
+    case SPRY_NODE_KIND_BUTTON: return node->as.button.id;
   }
+  return sp_zero_s(sp_str_t);
 }
 
-static u32 render_node(yyjson_val* node) {
-  yyjson_val* kind = yyjson_obj_get(node, "kind");
+static const spry_interaction_t* node_on(const spry_node_t* node) {
+  switch (node->kind) {
+    case SPRY_NODE_KIND_BOX:    return node->as.box.on;
+    case SPRY_NODE_KIND_BUTTON: return node->as.button.on;
+    case SPRY_NODE_KIND_TEXT:   return SP_NULLPTR;
+    case SPRY_NODE_KIND_LINK:   return SP_NULLPTR;
+    case SPRY_NODE_KIND_INPUT:  return SP_NULLPTR;
+  }
+  return SP_NULLPTR;
+}
 
-  el_kind_t el;
-  if (node_is(kind, "box")) el = EL_BOX;
-  else if (node_is(kind, "text")) el = EL_TEXT;
-  else if (node_is(kind, "link")) el = EL_LINK;
-  else if (node_is(kind, "input")) el = EL_INPUT;
-  else if (node_is(kind, "button")) el = EL_BUTTON;
-  else { rt_fatal(sp_str_lit("unknown node kind")); return HANDLE_NONE; }
+static u32 render_node(const spry_node_t* node) {
+  u32 handle = host_create_element((u32)node->kind);
 
-  u32 handle = host_create_element(el);
-  yyjson_val* props = yyjson_obj_get(node, "props");
+  sp_str_t id = node_id(node);
+  if (!sp_str_empty(id)) rt_register_id(id, handle);
 
-  yyjson_val* id = yyjson_obj_get(node, "id");
-  if (yyjson_is_str(id)) rt_register_id(sp_str_copy(rt_mem(), rt_str(id)), handle);
-
-  yyjson_val* on = yyjson_obj_get(node, "on");
-  if (yyjson_is_obj(on)) {
-    yyjson_val* action = yyjson_obj_get(on, "action");
-    yyjson_val* target = yyjson_obj_get(on, "target");
-    if (yyjson_is_str(action) && yyjson_is_str(target)) {
-      yyjson_val* ev = yyjson_obj_get(on, "event");
-      u32 event = node_is(ev, "submit") ? EVENT_SUBMIT : EVENT_CLICK;
-      u32 token = rt_push_token(sp_str_copy(rt_mem(), rt_str(action)),
-                                sp_str_copy(rt_mem(), rt_str(target)));
-      host_on_event(handle, event, token);
-    }
+  const spry_interaction_t* on = node_on(node);
+  if (on) {
+    u32 token = rt_push_token(on->action, on->target);
+    host_on_event(handle, (u32)on->event, token);
   }
 
-  switch (el) {
-    case EL_BOX: {
-      yyjson_val* dir = yyjson_obj_get(props, "direction");
-      if (dir) host_set_attr(handle, ATTR_DIRECTION, (s32)dir_enum(dir));
-      yyjson_val* gap = yyjson_obj_get(props, "gap");
-      if (yyjson_is_num(gap)) host_set_attr(handle, ATTR_GAP, (s32)yyjson_get_num(gap));
-      yyjson_val* pad = yyjson_obj_get(props, "padding");
-      if (yyjson_is_num(pad)) host_set_attr(handle, ATTR_PADDING, (s32)yyjson_get_num(pad));
-      yyjson_val* align = yyjson_obj_get(props, "align");
-      if (align) host_set_attr(handle, ATTR_ALIGN, (s32)align_enum(align));
-      yyjson_val* justify = yyjson_obj_get(props, "justify");
-      if (justify) host_set_attr(handle, ATTR_JUSTIFY, (s32)justify_enum(justify));
-
-      yyjson_val* children = yyjson_obj_get(node, "children");
-      if (yyjson_is_arr(children)) {
-        u32 count = (u32)yyjson_arr_size(children);
-        sp_for(i, count) {
-          u32 child = render_node(yyjson_arr_get(children, i));
-          if (child == HANDLE_NONE) return HANDLE_NONE;
-          host_append_child(handle, child);
-        }
+  switch (node->kind) {
+    case SPRY_NODE_KIND_BOX: {
+      const spry_box_t* box = &node->as.box;
+      if (box->props) {
+        const spry_box_props_t* props = box->props;
+        host_set_direction(handle, (u32)props->direction);
+        host_set_gap(handle, props->gap);
+        host_set_padding(handle, props->padding);
+        host_set_align(handle, (u32)props->align);
+        host_set_justify(handle, (u32)props->justify);
+      }
+      sp_da_for(box->children, i) {
+        host_append_child(handle, render_node(&box->children[i]));
       }
       break;
     }
-    case EL_TEXT: {
-      set_str_prop(handle, props, "text", SATTR_TEXT);
+    case SPRY_NODE_KIND_TEXT: {
+      sp_str_t text = node->as.text.props.text;
+      host_set_text(handle, text.data, text.len);
       break;
     }
-    case EL_LINK: {
-      set_str_prop(handle, props, "text", SATTR_TEXT);
-      set_str_prop(handle, props, "href", SATTR_HREF);
+    case SPRY_NODE_KIND_LINK: {
+      const spry_link_props_t* props = &node->as.link.props;
+      host_set_text(handle, props->text.data, props->text.len);
+      host_set_href(handle, props->href.data, props->href.len);
       break;
     }
-    case EL_INPUT: {
-      yyjson_val* name = yyjson_obj_get(props, "name");
-      if (yyjson_is_str(name)) {
-        sp_str_t s = rt_str(name);
-        host_set_attr_str(handle, SATTR_NAME, s.data, s.len);
-        rt_push_field(handle, sp_str_copy(rt_mem(), s));
-      }
-      set_str_prop(handle, props, "value", SATTR_VALUE);
-      set_str_prop(handle, props, "placeholder", SATTR_PLACEHOLDER);
+    case SPRY_NODE_KIND_INPUT: {
+      const spry_input_props_t* props = &node->as.input.props;
+      host_set_name(handle, props->name.data, props->name.len);
+      rt_push_field(handle, props->name);
+      if (!sp_str_empty(props->value)) host_set_value(handle, props->value.data, props->value.len);
+      if (!sp_str_empty(props->placeholder)) host_set_placeholder(handle, props->placeholder.data, props->placeholder.len);
       break;
     }
-    case EL_BUTTON: {
-      set_str_prop(handle, props, "text", SATTR_TEXT);
+    case SPRY_NODE_KIND_BUTTON: {
+      sp_str_t text = node->as.button.props.text;
+      host_set_text(handle, text.data, text.len);
       break;
     }
   }
@@ -217,18 +179,14 @@ static u32 render_node(yyjson_val* node) {
   return handle;
 }
 
-static void render_into(u32 target, yyjson_val* frag) {
-  host_clear_children(target);
-  if (yyjson_is_arr(frag)) {
-    u32 count = (u32)yyjson_arr_size(frag);
-    sp_for(i, count) {
-      u32 child = render_node(yyjson_arr_get(frag, i));
-      if (child != HANDLE_NONE) host_append_child(target, child);
-    }
-  } else {
-    u32 child = render_node(frag);
-    if (child != HANDLE_NONE) host_append_child(target, child);
+static bool rt_parse_node(yyjson_val* val, spry_node_t* out) {
+  spry_ctx_t ctx;
+  spry_ctx_init(&ctx, rt_mem());
+  if (spry_ast_parse(&SPRY_AST_ROOT_TYPE, val, &ctx, out) != SPRY_OK) {
+    rt_fatal(spry_issue_str(rt_mem(), &ctx.issues[0]));
+    return false;
   }
+  return true;
 }
 
 __attribute__((export_name("alloc")))
@@ -249,10 +207,10 @@ s32 rt_render(const c8* ptr, u32 len) {
   yyjson_doc* doc = rt_parse(ptr, len);
   if (!doc) { rt_fatal(sp_str_lit("json parse error")); return 2; }
 
-  u32 handle = render_node(yyjson_doc_get_root(doc));
-  if (handle == HANDLE_NONE) return 3;
+  spry_node_t node = sp_zero_s(spry_node_t);
+  if (!rt_parse_node(yyjson_doc_get_root(doc), &node)) return 3;
 
-  host_set_root(handle);
+  host_set_root(render_node(&node));
   return 0;
 }
 
@@ -287,5 +245,9 @@ void rt_deliver(u32 token, const c8* ptr, u32 len) {
   yyjson_doc* doc = rt_parse(ptr, len);
   if (!doc) { rt_fatal(sp_str_lit("fragment parse error")); return; }
 
-  render_into(target, yyjson_doc_get_root(doc));
+  spry_node_t node = sp_zero_s(spry_node_t);
+  if (!rt_parse_node(yyjson_doc_get_root(doc), &node)) return;
+
+  host_clear_children(target);
+  host_append_child(target, render_node(&node));
 }

@@ -15,8 +15,16 @@ struct backend {
   void* self;
   u32   (*capabilities)(void* self);
   void* (*create_element)(void* self, u32 kind);
-  void  (*set_attr)(void* self, void* node, u32 attr, s32 value);
-  void  (*set_attr_str)(void* self, void* node, u32 attr, sp_str_t value);
+  void  (*set_direction)(void* self, void* node, u32 value);
+  void  (*set_gap)(void* self, void* node, s32 value);
+  void  (*set_padding)(void* self, void* node, s32 value);
+  void  (*set_align)(void* self, void* node, u32 value);
+  void  (*set_justify)(void* self, void* node, u32 value);
+  void  (*set_text)(void* self, void* node, sp_str_t value);
+  void  (*set_href)(void* self, void* node, sp_str_t value);
+  void  (*set_value)(void* self, void* node, sp_str_t value);
+  void  (*set_name)(void* self, void* node, sp_str_t value);
+  void  (*set_placeholder)(void* self, void* node, sp_str_t value);
   void  (*append_child)(void* self, void* parent, void* child);
   void  (*set_root)(void* self, void* node);
   void  (*on_event)(void* self, void* node, u32 event, u32 token);

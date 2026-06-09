@@ -64,6 +64,58 @@ struct spry_ast_type {
   } as;
 };
 
-bool spry_ast_parse(const spry_ast_type_t* type, yyjson_val* val, sp_mem_t mem, void* out, sp_str_t* err);
+typedef enum {
+  SPRY_OK = 0,
+
+  SPRY_ERR_AST = 1000,
+  SPRY_ERR_AST_EXPECTED_BOOL,
+  SPRY_ERR_AST_EXPECTED_INT,
+  SPRY_ERR_AST_EXPECTED_STR,
+  SPRY_ERR_AST_EXPECTED_ENUM,
+  SPRY_ERR_AST_EXPECTED_ARRAY,
+  SPRY_ERR_AST_EXPECTED_OBJECT,
+  SPRY_ERR_AST_INT_RANGE,
+  SPRY_ERR_AST_INVALID_ENUM,
+  SPRY_ERR_AST_UNKNOWN_KEY,
+  SPRY_ERR_AST_MISSING_KEY,
+  SPRY_ERR_AST_MISSING_DISCRIMINATOR,
+  SPRY_ERR_AST_UNKNOWN_VARIANT,
+} spry_err_t;
+
+typedef struct {
+  spry_err_t code;
+  sp_str_t   path;
+  sp_str_t   detail;
+  s64        num;
+  s64        min;
+  s64        max;
+} spry_issue_t;
+
+#define SPRY_PATH_MAX 32
+
+typedef enum {
+  SPRY_PATH_KEY,
+  SPRY_PATH_INDEX,
+} spry_path_seg_kind_t;
+
+typedef struct {
+  spry_path_seg_kind_t kind;
+  const c8* key;
+  u32 index;
+} spry_path_seg_t;
+
+typedef struct {
+  sp_mem_t mem;
+  spry_path_seg_t path[SPRY_PATH_MAX];
+  u32 depth;
+  sp_da(spry_issue_t) issues;
+} spry_ctx_t;
+
+void spry_ctx_init(spry_ctx_t* ctx, sp_mem_t mem);
+
+spry_err_t spry_ast_parse(const spry_ast_type_t* type, yyjson_val* val, spry_ctx_t* ctx, void* out);
+
+sp_str_t spry_err_name(spry_err_t code);
+sp_str_t spry_issue_str(sp_mem_t mem, const spry_issue_t* issue);
 
 #endif
