@@ -106,6 +106,18 @@ typedef enum {
   SPRY_ERR_AST_MISSING_KEY,
   SPRY_ERR_AST_MISSING_DISCRIMINATOR,
   SPRY_ERR_AST_UNKNOWN_VARIANT,
+
+  SPRY_ERR_JSON = 2000,
+
+  SPRY_ERR_GEN_PREFIX_MISSING = 3000,
+  SPRY_ERR_GEN_PREFIX_INVALID,
+  SPRY_ERR_GEN_ENDPOINT_INVALID,
+  SPRY_ERR_GEN_ENDPOINT_DUP,
+  SPRY_ERR_GEN_ARG_INVALID,
+  SPRY_ERR_GEN_ARG_RESERVED,
+  SPRY_ERR_GEN_ARG_DUP,
+  SPRY_ERR_GEN_ARG_TYPE,
+  SPRY_ERR_GEN_WRITE,
 } spry_err_t;
 
 typedef struct {
@@ -136,6 +148,17 @@ typedef struct {
   u32 depth;
   sp_da(spry_issue_t) issues;
 } spry_ctx_t;
+
+extern const spry_ast_type_t spry_str_type;
+extern const spry_ast_type_t spry_bool_type;
+extern const spry_ast_type_t spry_s8_type;
+extern const spry_ast_type_t spry_u8_type;
+extern const spry_ast_type_t spry_s16_type;
+extern const spry_ast_type_t spry_u16_type;
+extern const spry_ast_type_t spry_s32_type;
+extern const spry_ast_type_t spry_u32_type;
+extern const spry_ast_type_t spry_f32_type;
+extern const spry_ast_type_t spry_f64_type;
 
 void spry_ctx_init(spry_ctx_t* ctx, sp_mem_t mem);
 

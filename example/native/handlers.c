@@ -2,6 +2,7 @@
 #include "sp.h"
 #include "spry/rpc.h"
 #include "spry/ui.h"
+#include "demo.endpoints.gen.h"
 #include "handlers.h"
 
 #define ROW_LIMIT 20
@@ -32,8 +33,7 @@ static bool table_exists(demo_ctx_t* app, sp_str_t table) {
   return found;
 }
 
-static spry_reply_t ep_tables(void* ctx, const spry_args_t* args) {
-  (void)args;
+static spry_reply_t ep_tables(void* ctx) {
   demo_ctx_t* app = ctx;
 
   sqlite3_stmt* stmt;
@@ -108,18 +108,17 @@ static spry_reply_t grid_reply(demo_ctx_t* app, sp_str_t table) {
   return spry_ok_ui(app->rpc, ui, root);
 }
 
-static spry_reply_t ep_open_table(void* ctx, const spry_args_t* args) {
+static spry_reply_t ep_open_table(void* ctx, const demo_open_table_args_t* args) {
   demo_ctx_t* app = ctx;
-  sp_str_t table = spry_arg_str(args, "table");
-  if (!table_exists(app, table)) return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no such table '{}'", sp_fmt_str(table)).value);
-  return grid_reply(app, table);
+  if (!table_exists(app, args->table)) return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no such table '{}'", sp_fmt_str(args->table)).value);
+  return grid_reply(app, args->table);
 }
 
-static spry_reply_t ep_edit_cell(void* ctx, const spry_args_t* args) {
+static spry_reply_t ep_edit_cell(void* ctx, const demo_edit_cell_args_t* args) {
   demo_ctx_t* app = ctx;
-  sp_str_t table = spry_arg_str(args, "table");
-  s64 rowid = spry_arg_s64(args, "rowid");
-  sp_str_t col = spry_arg_str(args, "column");
+  sp_str_t table = args->table;
+  s32 rowid = args->rowid;
+  sp_str_t col = args->column;
   if (!table_exists(app, table)) return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no such table '{}'", sp_fmt_str(table)).value);
 
   sp_mem_arena_marker_t scratch = sp_mem_begin_scratch_for(app->mem);
@@ -162,12 +161,12 @@ static spry_reply_t ep_edit_cell(void* ctx, const spry_args_t* args) {
   return spry_ok_ui(app->rpc, ui, root);
 }
 
-static spry_reply_t ep_save_cell(void* ctx, const spry_args_t* args) {
+static spry_reply_t ep_save_cell(void* ctx, const demo_save_cell_args_t* args) {
   demo_ctx_t* app = ctx;
-  sp_str_t table = spry_arg_str(args, "table");
-  s64 rowid = spry_arg_s64(args, "rowid");
-  sp_str_t col = spry_arg_str(args, "column");
-  sp_str_t value = spry_arg_str(args, "value");
+  sp_str_t table = args->table;
+  s32 rowid = args->rowid;
+  sp_str_t col = args->column;
+  sp_str_t value = args->value;
   if (!table_exists(app, table)) return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no such table '{}'", sp_fmt_str(table)).value);
 
   sp_mem_arena_marker_t scratch = sp_mem_begin_scratch_for(app->mem);
@@ -189,9 +188,9 @@ static spry_reply_t ep_save_cell(void* ctx, const spry_args_t* args) {
   return grid_reply(app, table);
 }
 
-static spry_reply_t ep_exec(void* ctx, const spry_args_t* args) {
+static spry_reply_t ep_exec(void* ctx, const demo_exec_args_t* args) {
   demo_ctx_t* app = ctx;
-  sp_str_t sql = spry_arg_str(args, "sql");
+  sp_str_t sql = args->sql;
 
   spry_ui_t* ui = spry_ui_new(app->mem);
   u32 root = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_COLUMN, .gap = 4 });
@@ -252,10 +251,10 @@ demo_ctx_t* demo_new(sp_mem_t mem, sqlite3* db, spry_endpoints_t endpoints) {
   ctx->mem = mem;
   ctx->db = db;
   ctx->rpc = spry_rpc_new(mem, endpoints);
-  spry_rpc_register(ctx->rpc, sp_str_lit("tables"), ep_tables, ctx);
-  spry_rpc_register(ctx->rpc, sp_str_lit("open_table"), ep_open_table, ctx);
-  spry_rpc_register(ctx->rpc, sp_str_lit("edit_cell"), ep_edit_cell, ctx);
-  spry_rpc_register(ctx->rpc, sp_str_lit("save_cell"), ep_save_cell, ctx);
-  spry_rpc_register(ctx->rpc, sp_str_lit("exec"), ep_exec, ctx);
+  demo_register_tables(ctx->rpc, ep_tables, ctx);
+  demo_register_open_table(ctx->rpc, ep_open_table, ctx);
+  demo_register_edit_cell(ctx->rpc, ep_edit_cell, ctx);
+  demo_register_save_cell(ctx->rpc, ep_save_cell, ctx);
+  demo_register_exec(ctx->rpc, ep_exec, ctx);
   return ctx;
 }

@@ -10,3 +10,5 @@ compile_commands.json
 /.playwright-mcp
 /example/db
 /src/assets
+/example/native/demo.endpoints.gen.h
+/example/web/endpoints.gen.ts

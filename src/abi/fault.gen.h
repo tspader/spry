@@ -18,16 +18,6 @@ typedef struct spry_fault {
   sp_da(spry_fault_issue_t) issues;
 } spry_fault_t;
 
-#ifndef SPRY_GEN_SCALAR_BOOL
-#define SPRY_GEN_SCALAR_BOOL
-static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };
-#endif
-
-#ifndef SPRY_GEN_SCALAR_STR
-#define SPRY_GEN_SCALAR_STR
-static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };
-#endif
-
 static const spry_ast_type_t spry_code_type;
 static const spry_ast_type_t spry_fault_issue_type;
 static const spry_ast_type_t spry_fault_issue_array_type;

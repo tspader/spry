@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { spryApp, Fault } from "spry/server";
 import { button, column, input, invoke, row, text } from "spry/ui";
 import type { Node } from "spry/schema";
+import type { Handlers } from "./endpoints.gen";
 import endpoints from "../ui/endpoints.json";
 import tree from "../ui/tree.json";
 
@@ -100,84 +101,75 @@ function tableGrid(table: string): Node {
   );
 }
 
-const app = await spryApp({
-  endpoints,
-  tree,
-  handlers: {
-    tables() {
-      return column(
-        { gap: 6 },
-        text("tables"),
-        ...tableNames().map((name) =>
-          button({
-            text: name,
-            on: invoke({ handler: "open_table", onResponse: "patch", target: "grid", body: { table: name } }),
-          }),
-        ),
-      );
-    },
-
-    open_table(args) {
-      const table = args.table as string;
-      requireTable(table);
-      return tableGrid(table);
-    },
-
-    edit_cell(args) {
-      const table = args.table as string;
-      const rowid = args.rowid as number;
-      const col = args.column as string;
-      requireTable(table);
-      if (!tableColumns(table).includes(col)) throw new Fault("missing", `no such column '${col}'`);
-
-      const current = db
-        .query(`select ${quoteIdent(col)} as value from ${quoteIdent(table)} where rowid = ?`)
-        .get(rowid) as { value: unknown } | null;
-      if (!current) throw new Fault("missing", `no row ${rowid} in '${table}'`);
-
-      return column(
-        { gap: 8 },
-        text(`editing ${table}[${rowid}].${col}`),
-        row(
-          { gap: 8, align: "center" },
-          input({ name: "value", value: cellText(current.value) }),
-          button({
-            text: "Save",
-            on: invoke({
-              handler: "save_cell",
-              onResponse: "patch",
-              target: "grid",
-              body: { table, rowid: String(rowid), column: col },
-            }),
-          }),
-        ),
-      );
-    },
-
-    save_cell(args) {
-      const table = args.table as string;
-      const rowid = args.rowid as number;
-      const col = args.column as string;
-      const value = args.value as string;
-      requireTable(table);
-      if (!tableColumns(table).includes(col)) throw new Fault("missing", `no such column '${col}'`);
-
-      db.run(`update ${quoteIdent(table)} set ${quoteIdent(col)} = ? where rowid = ?`, [value, rowid]);
-      return tableGrid(table);
-    },
-
-    exec(args) {
-      const sql = args.sql as string;
-      try {
-        const rows = db.query(sql).all() as Array<Record<string, unknown>>;
-        const columns = rows.length ? Object.keys(rows[0]!) : [];
-        return resultGrid(columns, rows.slice(0, ROW_LIMIT));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return column({ gap: 4 }, text(`SQL error: ${message}`));
-      }
-    },
+const handlers: Handlers = {
+  tables() {
+    return column(
+      { gap: 6 },
+      text("tables"),
+      ...tableNames().map((name) =>
+        button({
+          text: name,
+          on: invoke({ handler: "open_table", onResponse: "patch", target: "grid", body: { table: name } }),
+        }),
+      ),
+    );
   },
-});
+
+  open_table(args) {
+    requireTable(args.table);
+    return tableGrid(args.table);
+  },
+
+  edit_cell(args) {
+    const { table, rowid, column: col } = args;
+    requireTable(table);
+    if (!tableColumns(table).includes(col)) throw new Fault("missing", `no such column '${col}'`);
+
+    const current = db
+      .query(`select ${quoteIdent(col)} as value from ${quoteIdent(table)} where rowid = ?`)
+      .get(rowid) as { value: unknown } | null;
+    if (!current) throw new Fault("missing", `no row ${rowid} in '${table}'`);
+
+    return column(
+      { gap: 8 },
+      text(`editing ${table}[${rowid}].${col}`),
+      row(
+        { gap: 8, align: "center" },
+        input({ name: "value", value: cellText(current.value) }),
+        button({
+          text: "Save",
+          on: invoke({
+            handler: "save_cell",
+            onResponse: "patch",
+            target: "grid",
+            body: { table, rowid: String(rowid), column: col },
+          }),
+        }),
+      ),
+    );
+  },
+
+  save_cell(args) {
+    const { table, rowid, column: col, value } = args;
+    requireTable(table);
+    if (!tableColumns(table).includes(col)) throw new Fault("missing", `no such column '${col}'`);
+
+    db.run(`update ${quoteIdent(table)} set ${quoteIdent(col)} = ? where rowid = ?`, [value, rowid]);
+    return tableGrid(table);
+  },
+
+  exec(args) {
+    try {
+      const rows = db.query(args.sql).all() as Array<Record<string, unknown>>;
+      const columns = rows.length ? Object.keys(rows[0]!) : [];
+      return resultGrid(columns, rows.slice(0, ROW_LIMIT));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return column({ gap: 4 }, text(`SQL error: ${message}`));
+    }
+  },
+};
+
+const app = await spryApp({ endpoints, tree, handlers });
 
 export default { port: 3000, fetch: app.fetch };

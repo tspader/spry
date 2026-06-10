@@ -105,21 +105,6 @@ typedef struct spry_node {
   } as;
 } spry_node_t;
 
-#ifndef SPRY_GEN_SCALAR_S32
-#define SPRY_GEN_SCALAR_S32
-static const spry_ast_type_t spry_s32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S32 } };
-#endif
-
-#ifndef SPRY_GEN_SCALAR_BOOL
-#define SPRY_GEN_SCALAR_BOOL
-static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };
-#endif
-
-#ifndef SPRY_GEN_SCALAR_STR
-#define SPRY_GEN_SCALAR_STR
-static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };
-#endif
-
 static const spry_ast_type_t spry_direction_type;
 static const spry_ast_type_t spry_align_type;
 static const spry_ast_type_t spry_justify_type;

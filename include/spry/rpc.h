@@ -14,9 +14,18 @@ typedef struct {
 } spry_args_t;
 
 typedef spry_reply_t (*spry_handler_fn_t)(void* ctx, const spry_args_t* args);
+typedef spry_reply_t (*spry_handler_any_t)(void);
+
+typedef struct {
+  spry_rpc_t* rpc;
+  spry_handler_any_t fn;
+  void* ctx;
+} spry_binding_t;
 
 spry_rpc_t*  spry_rpc_new(sp_mem_t mem, spry_endpoints_t endpoints);
 void         spry_rpc_register(spry_rpc_t* rpc, sp_str_t name, spry_handler_fn_t fn, void* ctx);
+void         spry_rpc_bind(spry_rpc_t* rpc, sp_str_t name, spry_handler_any_t fn, void* ctx, spry_handler_fn_t thunk);
+bool         spry_rpc_parse(spry_binding_t* binding, const spry_args_t* args, const spry_ast_type_t* type, void* out, spry_reply_t* fault);
 bool         spry_rpc_check(spry_rpc_t* rpc);
 spry_reply_t spry_rpc_dispatch(spry_rpc_t* rpc, sp_str_t handler, sp_str_t body);
 spry_reply_t spry_rpc_resolver(void* rpc, sp_str_t handler, sp_str_t body);

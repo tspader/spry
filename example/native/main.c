@@ -25,9 +25,9 @@ s32 main(s32 argc, c8** argv) {
   }
 
   spry_endpoints_t endpoints;
-  sp_str_t error = sp_zero_s(sp_str_t);
-  if (!spry_endpoints_parse(mem, endpoints_json, &endpoints, &error)) {
-    sp_log("native: invalid endpoints: {}", sp_fmt_str(error));
+  spry_issue_t issue = sp_zero_s(spry_issue_t);
+  if (spry_endpoints_parse(mem, endpoints_json, &endpoints, &issue)) {
+    sp_log("native: invalid endpoints: {}", sp_fmt_str(spry_issue_str(mem, &issue)));
     return 1;
   }
 

@@ -1,5 +1,16 @@
 #include "spry/ast.h"
 
+const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };
+const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };
+const spry_ast_type_t spry_s8_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S8 } };
+const spry_ast_type_t spry_u8_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_U8 } };
+const spry_ast_type_t spry_s16_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S16 } };
+const spry_ast_type_t spry_u16_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_U16 } };
+const spry_ast_type_t spry_s32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S32 } };
+const spry_ast_type_t spry_u32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_U32 } };
+const spry_ast_type_t spry_f32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_F32 } };
+const spry_ast_type_t spry_f64_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_F64 } };
+
 void spry_ctx_init(spry_ctx_t* ctx, sp_mem_t mem) {
   ctx->mem = mem;
   ctx->depth = 0;
@@ -454,6 +465,16 @@ sp_str_t spry_err_name(spry_err_t code) {
     case SPRY_ERR_AST_MISSING_KEY:            return sp_str_lit("missing required key");
     case SPRY_ERR_AST_MISSING_DISCRIMINATOR:  return sp_str_lit("missing discriminator");
     case SPRY_ERR_AST_UNKNOWN_VARIANT:        return sp_str_lit("unknown variant");
+    case SPRY_ERR_JSON:                       return sp_str_lit("invalid json");
+    case SPRY_ERR_GEN_PREFIX_MISSING:         return sp_str_lit("prefix is required");
+    case SPRY_ERR_GEN_PREFIX_INVALID:         return sp_str_lit("invalid prefix");
+    case SPRY_ERR_GEN_ENDPOINT_INVALID:       return sp_str_lit("invalid endpoint name");
+    case SPRY_ERR_GEN_ENDPOINT_DUP:           return sp_str_lit("duplicate endpoint");
+    case SPRY_ERR_GEN_ARG_INVALID:            return sp_str_lit("invalid argument name");
+    case SPRY_ERR_GEN_ARG_RESERVED:           return sp_str_lit("reserved argument name");
+    case SPRY_ERR_GEN_ARG_DUP:                return sp_str_lit("duplicate argument");
+    case SPRY_ERR_GEN_ARG_TYPE:               return sp_str_lit("unsupported argument type");
+    case SPRY_ERR_GEN_WRITE:                  return sp_str_lit("write failed");
   }
   return sp_str_lit("unknown error");
 }
@@ -471,17 +492,7 @@ sp_str_t spry_issue_str(sp_mem_t mem, const spry_issue_t* issue) {
     case SPRY_ERR_AST_MISSING_DISCRIMINATOR:
       return sp_fmt(mem, "{} '{}' at {}", sp_fmt_str(spry_err_name(issue->code)),
                     sp_fmt_str(issue->detail), sp_fmt_str(issue->path)).value;
-    case SPRY_OK:
-    case SPRY_ERR_AST:
-    case SPRY_ERR_AST_EXPECTED_BOOL:
-    case SPRY_ERR_AST_EXPECTED_NUMBER:
-    case SPRY_ERR_AST_EXPECTED_STR:
-    case SPRY_ERR_AST_EXPECTED_ENUM:
-    case SPRY_ERR_AST_EXPECTED_ARRAY:
-    case SPRY_ERR_AST_EXPECTED_OBJECT:
-    case SPRY_ERR_AST_UNKNOWN_KEY:
-    case SPRY_ERR_AST_MISSING_KEY:
+    default:
       return sp_fmt(mem, "{} at {}", sp_fmt_str(spry_err_name(issue->code)), sp_fmt_str(issue->path)).value;
   }
-  return sp_str_lit("unknown error");
 }

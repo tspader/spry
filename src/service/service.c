@@ -73,10 +73,10 @@ s32 svc_endpoints(const c8* ptr, u32 len) {
     return 1;
   }
 
-  sp_str_t error = sp_zero_s(sp_str_t);
+  spry_issue_t issue = sp_zero_s(spry_issue_t);
   spry_endpoints_t endpoints = SP_NULLPTR;
-  if (!spry_endpoints_parse_val(svc_mem(), yyjson_doc_get_root(doc), &endpoints, &error)) {
-    g_result = error;
+  if (spry_endpoints_parse_val(svc_mem(), yyjson_doc_get_root(doc), &endpoints, &issue)) {
+    g_result = spry_issue_str(svc_mem(), &issue);
     return 1;
   }
 

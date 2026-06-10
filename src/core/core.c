@@ -1,25 +1,23 @@
 #include "spry/core.h"
 
-bool spry_endpoints_parse_val(sp_mem_t mem, yyjson_val* val, spry_endpoints_t* out, sp_str_t* error) {
+spry_err_t spry_endpoints_parse_val(sp_mem_t mem, yyjson_val* val, spry_endpoints_t* out, spry_issue_t* issue) {
   spry_ctx_t ctx;
   spry_ctx_init(&ctx, mem);
-  if (spry_ast_parse(&spry_endpoints_type, val, &ctx, out) != SPRY_OK) {
-    if (error) *error = spry_issue_str(mem, &ctx.issues[0]);
-    return false;
-  }
-  return true;
+  spry_err_t err = spry_ast_parse(&spry_endpoints_type, val, &ctx, out);
+  if (err && issue) *issue = ctx.issues[0];
+  return err;
 }
 
-bool spry_endpoints_parse(sp_mem_t mem, sp_str_t json, spry_endpoints_t* out, sp_str_t* error) {
+spry_err_t spry_endpoints_parse(sp_mem_t mem, sp_str_t json, spry_endpoints_t* out, spry_issue_t* issue) {
   *out = SP_NULLPTR;
   yyjson_doc* doc = yyjson_read(json.data, json.len, 0);
   if (!doc) {
-    if (error) *error = sp_str_lit("endpoints json parse error");
-    return false;
+    if (issue) *issue = (spry_issue_t){ .code = SPRY_ERR_JSON, .path = sp_str_lit("$") };
+    return SPRY_ERR_JSON;
   }
-  bool ok = spry_endpoints_parse_val(mem, yyjson_doc_get_root(doc), out, error);
+  spry_err_t err = spry_endpoints_parse_val(mem, yyjson_doc_get_root(doc), out, issue);
   yyjson_doc_free(doc);
-  return ok;
+  return err;
 }
 
 const spry_endpoint_t* spry_endpoint_find(spry_endpoints_t endpoints, sp_str_t name) {

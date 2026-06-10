@@ -41,16 +41,6 @@ typedef struct spry_endpoints_entry {
 
 typedef sp_da(spry_endpoints_entry_t) spry_endpoints_t;
 
-#ifndef SPRY_GEN_SCALAR_BOOL
-#define SPRY_GEN_SCALAR_BOOL
-static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };
-#endif
-
-#ifndef SPRY_GEN_SCALAR_STR
-#define SPRY_GEN_SCALAR_STR
-static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };
-#endif
-
 static const spry_ast_type_t spry_type_type;
 static const spry_ast_type_t spry_endpoint_arg_type;
 static const spry_ast_type_t spry_endpoint_args_properties_type;

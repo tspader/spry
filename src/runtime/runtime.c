@@ -302,9 +302,9 @@ s32 rt_endpoints(const c8* ptr, u32 len) {
   if (!doc) { rt_fatal(sp_str_lit("endpoints parse error")); return 1; }
 
   spry_endpoints_t endpoints = SP_NULLPTR;
-  sp_str_t error = sp_zero_s(sp_str_t);
-  if (!spry_endpoints_parse_val(rt_mem(), yyjson_doc_get_root(doc), &endpoints, &error)) {
-    rt_fatal(error);
+  spry_issue_t issue = sp_zero_s(spry_issue_t);
+  if (spry_endpoints_parse_val(rt_mem(), yyjson_doc_get_root(doc), &endpoints, &issue)) {
+    rt_fatal(spry_issue_str(rt_mem(), &issue));
     return 2;
   }
 

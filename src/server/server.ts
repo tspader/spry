@@ -40,7 +40,7 @@ function file(url: URL, contentType: string): Promise<Response> {
   );
 }
 
-export type Handler = (args: Record<string, unknown>) => unknown | Promise<unknown>;
+export type Handler = (args: any) => unknown | Promise<unknown>;
 
 export type SpryAppOpts = {
   endpoints: unknown;

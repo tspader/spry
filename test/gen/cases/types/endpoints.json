@@ -1,0 +1,20 @@
+{
+  "scan": {
+    "args": {
+      "optionalProperties": {
+        "f": { "type": "uint16" },
+        "g": { "type": "int32" },
+        "h": { "type": "uint32" },
+        "i": { "type": "float32" },
+        "j": { "type": "float64" }
+      },
+      "properties": {
+        "a": { "type": "string" },
+        "b": { "type": "boolean" },
+        "c": { "type": "int8" },
+        "d": { "type": "uint8" },
+        "e": { "type": "int16" }
+      }
+    }
+  }
+}

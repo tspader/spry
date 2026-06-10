@@ -1,0 +1,36 @@
+{
+  "tables": {},
+  "open_table": {
+    "args": {
+      "properties": {
+        "table": { "type": "string" }
+      }
+    }
+  },
+  "edit_cell": {
+    "args": {
+      "properties": {
+        "table": { "type": "string" },
+        "rowid": { "type": "int32" },
+        "column": { "type": "string" }
+      }
+    }
+  },
+  "save_cell": {
+    "args": {
+      "properties": {
+        "table": { "type": "string" },
+        "rowid": { "type": "int32" },
+        "column": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    }
+  },
+  "exec": {
+    "args": {
+      "properties": {
+        "sql": { "type": "string" }
+      }
+    }
+  }
+}

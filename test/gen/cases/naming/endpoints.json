@@ -1,0 +1,6 @@
+{
+  "_foo_bar__baz_": { "args": { "properties": { "x": { "type": "boolean" } } } },
+  "v2_x9": { "args": { "properties": { "x": { "type": "boolean" } } } },
+  "foo2bar": { "args": { "properties": { "x": { "type": "boolean" } } } },
+  "switch": { "args": { "properties": { "x": { "type": "boolean" } } } }
+}

@@ -10,8 +10,8 @@
 
 typedef sp_da(spry_fault_issue_t) spry_issues_t;
 
-bool                       spry_endpoints_parse(sp_mem_t mem, sp_str_t json, spry_endpoints_t* out, sp_str_t* error);
-bool                       spry_endpoints_parse_val(sp_mem_t mem, yyjson_val* val, spry_endpoints_t* out, sp_str_t* error);
+spry_err_t                 spry_endpoints_parse(sp_mem_t mem, sp_str_t json, spry_endpoints_t* out, spry_issue_t* issue);
+spry_err_t                 spry_endpoints_parse_val(sp_mem_t mem, yyjson_val* val, spry_endpoints_t* out, spry_issue_t* issue);
 const spry_endpoint_t*     spry_endpoint_find(spry_endpoints_t endpoints, sp_str_t name);
 const spry_endpoint_arg_t* spry_endpoint_arg_find(const spry_endpoint_t* ep, sp_str_t name);
 

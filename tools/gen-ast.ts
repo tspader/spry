@@ -53,27 +53,10 @@ function generate(file: string, base: string, builders?: BuilderCfg) {
   const structDefs: string[] = [];
   const descForward: string[] = [];
   const descDefs: string[] = [];
-  const sharedDefs: string[] = [];
   const enumValues = new Map<string, string>();
   const arraysDone = new Set<string>();
   const valuesDone = new Set<string>();
-  const numbersDone = new Set<string>();
   const seen = new Set<string>();
-
-  function shared(guard: string, def: string) {
-    sharedDefs.push(`#ifndef ${guard}\n#define ${guard}\n${def}\n#endif`);
-  }
-
-  function ensureNumber(jtdType: string): { cType: string; descRef: string } {
-    const n = numTypes[jtdType]!;
-    const name = `spry_${n.cType}_type`;
-    if (!numbersDone.has(jtdType)) {
-      numbersDone.add(jtdType);
-      shared(`SPRY_GEN_SCALAR_${n.cType.toUpperCase()}`,
-        `static const spry_ast_type_t ${name} = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = ${n.repr} } };`);
-    }
-    return { cType: n.cType, descRef: `&${name}` };
-  }
 
   function registerEnum(key: string, values: string[]) {
     const sig = JSON.stringify(values);
@@ -103,8 +86,8 @@ function generate(file: string, base: string, builders?: BuilderCfg) {
     if (sub.type === "string") return { cType: "sp_str_t", descRef: "&spry_str_type", category: "scalar" };
     if (sub.type === "boolean") return { cType: "bool", descRef: "&spry_bool_type", category: "scalar" };
     if (sub.type && numTypes[sub.type]) {
-      const n = ensureNumber(sub.type);
-      return { cType: n.cType, descRef: n.descRef, category: "scalar" };
+      const n = numTypes[sub.type]!;
+      return { cType: n.cType, descRef: `&spry_${n.cType}_type`, category: "scalar" };
     }
     if (sub.type) throw new Error(`gen-ast: unsupported type '${sub.type}'`);
     if (sub.enum) {
@@ -288,8 +271,6 @@ function generate(file: string, base: string, builders?: BuilderCfg) {
   ].join("\n");
 
   const structFwdSection = structForward.map((b) => `typedef struct ${cName(b)} ${cType(b)};`).join("\n");
-  shared("SPRY_GEN_SCALAR_BOOL", "static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };");
-  shared("SPRY_GEN_SCALAR_STR", "static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };");
   const descFwdSection = descForward.map((n) => `static const spry_ast_type_t ${n};`).join("\n");
 
   const out = [
@@ -302,8 +283,6 @@ function generate(file: string, base: string, builders?: BuilderCfg) {
     structFwdSection,
     "",
     structDefs.join("\n\n"),
-    "",
-    sharedDefs.join("\n\n"),
     "",
     descFwdSection,
     "",

@@ -37,6 +37,20 @@ void spry_rpc_register(spry_rpc_t* rpc, sp_str_t name, spry_handler_fn_t fn, voi
   rpc->entries = entry;
 }
 
+void spry_rpc_bind(spry_rpc_t* rpc, sp_str_t name, spry_handler_any_t fn, void* ctx, spry_handler_fn_t thunk) {
+  spry_binding_t* binding = sp_alloc_type(rpc->mem, spry_binding_t);
+  *binding = (spry_binding_t){ .rpc = rpc, .fn = fn, .ctx = ctx };
+  spry_rpc_register(rpc, name, thunk, binding);
+}
+
+bool spry_rpc_parse(spry_binding_t* binding, const spry_args_t* args, const spry_ast_type_t* type, void* out, spry_reply_t* fault) {
+  spry_ctx_t ctx;
+  spry_ctx_init(&ctx, spry_rpc_mem(binding->rpc));
+  if (spry_ast_parse(type, args->root, &ctx, out) == SPRY_OK) return true;
+  *fault = spry_fault(binding->rpc, SPRY_CODE_INVALID, spry_issue_str(spry_rpc_mem(binding->rpc), &ctx.issues[0]));
+  return false;
+}
+
 static spry_rpc_entry_t* spry_rpc_entry_find(spry_rpc_t* rpc, sp_str_t name) {
   for (spry_rpc_entry_t* entry = rpc->entries; entry; entry = entry->next) {
     if (sp_str_equal(entry->name, name)) return entry;

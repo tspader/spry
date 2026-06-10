@@ -1,0 +1,1 @@
+{ "scan": { "args": { "properties": { "limit": { "type": "int32" } }, "optionalProperties": { "limit": { "type": "int32" } } } } }
