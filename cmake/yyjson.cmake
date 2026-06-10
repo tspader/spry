@@ -7,7 +7,6 @@ endif()
 add_library(yyjson STATIC ${YYJSON_DIR}/yyjson.c)
 target_include_directories(yyjson PUBLIC ${YYJSON_DIR})
 target_compile_definitions(yyjson PUBLIC
-  YYJSON_DISABLE_WRITER=1
   YYJSON_DISABLE_UTILS=1
   YYJSON_DISABLE_INCR_READER=1)
 

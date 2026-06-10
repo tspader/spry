@@ -29,12 +29,17 @@ typedef enum {
 } spry_justify_t;
 
 typedef enum {
+  SPRY_INTERACTION_KIND_INVOKE,
+} spry_interaction_kind_t;
+
+typedef enum {
   SPRY_EVENT_CLICK,
   SPRY_EVENT_SUBMIT,
 } spry_event_t;
 
 typedef enum {
-  SPRY_SWAP_INNER,
-} spry_swap_t;
+  SPRY_ONRESPONSE_PATCH,
+  SPRY_ONRESPONSE_IGNORE,
+} spry_onResponse_t;
 
 #endif

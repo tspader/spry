@@ -41,13 +41,19 @@
       }
     },
     "interaction": {
-      "properties": {
-        "event": { "enum": ["click", "submit"] },
-        "action": { "type": "string" },
-        "target": { "type": "string" }
-      },
-      "optionalProperties": {
-        "swap": { "enum": ["inner"] }
+      "discriminator": "action",
+      "mapping": {
+        "invoke": {
+          "properties": {
+            "event": { "enum": ["click", "submit"] },
+            "handler": { "type": "string" },
+            "onResponse": { "enum": ["patch", "ignore"] }
+          },
+          "optionalProperties": {
+            "target": { "type": "string" },
+            "body": { "values": { "type": "string" } }
+          }
+        }
       }
     }
   },

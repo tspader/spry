@@ -1,6 +1,7 @@
 import type { Backend, HostIface } from "spry/backend";
 
 export interface Mount {
+  endpoints(endpointsJson: string): number;
   render(treeJson: string): number;
 }
 
@@ -26,10 +27,10 @@ export async function mount<Node>(
 
   const iface: HostIface = {
     dispatch: (token) => exported<(t: number) => void>("dispatch")(token),
-    deliver: (token, json) => {
-      const bytes = encoder.encode(json);
+    deliver: (token, outcome, body) => {
+      const bytes = encoder.encode(body);
       const ptr = writeBytes(bytes);
-      exported<(t: number, p: number, l: number) => void>("deliver")(token, ptr, bytes.length);
+      exported<(t: number, o: number, p: number, l: number) => void>("deliver")(token, outcome, ptr, bytes.length);
     },
   };
 
@@ -55,8 +56,9 @@ export async function mount<Node>(
     append_child: (parent: number, child: number) => backend.appendChild(ref(parent), ref(child)),
     set_root: (handle: number) => backend.setRoot(ref(handle)),
     on_event: (handle: number, event: number, token: number) => backend.onEvent(ref(handle), event, token),
-    submit: (token: number, actionPtr: number, actionLen: number, bodyPtr: number, bodyLen: number) =>
-      backend.submit(token, readStr(actionPtr, actionLen), readStr(bodyPtr, bodyLen)),
+    invoke: (token: number, handlerPtr: number, handlerLen: number, bodyPtr: number, bodyLen: number) =>
+      backend.invoke(token, readStr(handlerPtr, handlerLen), readStr(bodyPtr, bodyLen)),
+    report: (token: number, ptr: number, len: number) => backend.report(token, readStr(ptr, len)),
     clear_children: (handle: number) => backend.clearChildren(ref(handle)),
     get_value: (handle: number, outPtr: number, cap: number): number => {
       const bytes = encoder.encode(backend.getValue(ref(handle)));
@@ -71,16 +73,18 @@ export async function mount<Node>(
   instance = (await WebAssembly.instantiate(wasmBytes, { host })).instance;
   memory = instance.exports.memory as WebAssembly.Memory;
 
-  const alloc = instance.exports.alloc as (len: number) => number;
+  const endpoints = instance.exports.endpoints as (ptr: number, len: number) => number;
   const render = instance.exports.render as (ptr: number, len: number) => number;
 
   return {
+    endpoints(endpointsJson: string): number {
+      const bytes = encoder.encode(endpointsJson);
+      return endpoints(writeBytes(bytes), bytes.length);
+    },
     render(treeJson: string): number {
       handles.length = 0;
-      const encoded = encoder.encode(treeJson);
-      const ptr = alloc(encoded.length);
-      new Uint8Array(memory.buffer).set(encoded, ptr);
-      return render(ptr, encoded.length);
+      const bytes = encoder.encode(treeJson);
+      return render(writeBytes(bytes), bytes.length);
     },
   };
 }

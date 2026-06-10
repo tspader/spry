@@ -12,6 +12,7 @@ typedef enum {
   SPRY_AST_OBJECT,
   SPRY_AST_ARRAY,
   SPRY_AST_UNION,
+  SPRY_AST_VALUES,
 } spry_ast_kind_t;
 
 typedef enum {
@@ -53,6 +54,13 @@ typedef struct {
 } spry_ast_array_t;
 
 typedef struct {
+  const spry_ast_type_t* value;
+  u32 stride;
+  u32 key_offset;
+  u32 value_offset;
+} spry_ast_values_t;
+
+typedef struct {
   const c8* tag_key;
   u32 tag_offset;
   u32 payload_offset;
@@ -74,6 +82,7 @@ struct spry_ast_type {
   union {
     spry_ast_object_t object;
     spry_ast_array_t  array;
+    spry_ast_values_t values;
     spry_ast_union_t  uni;
     spry_ast_enum_t   enom;
     spry_ast_number_t number;

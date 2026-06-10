@@ -10,8 +10,8 @@
   "scripts": {
     "build": "make all",
     "web": "make all && bun run example/web/server.ts",
-    "native": "make all && d=$PWD && cd .build/store/$(uname -m)-linux-gnu/gtk && ./app \"$d/example/ui/tree.json\"",
-    "smoke": "make all && .build/store/test/native-smoke .build/store/test/runtime.wasm example/ui/tree.json",
+    "native": "make all && d=$PWD && mkdir -p \"$d/example/db\" && cd .build/store/$(uname -m)-linux-gnu/gtk && ./app \"$d/example/ui/tree.json\" \"$d/example/ui/endpoints.json\" \"$d/example/db/demo.db\"",
+    "smoke": "make all && .build/store/test/native-smoke .build/store/test/runtime.wasm example/ui/tree.json example/ui/endpoints.json",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

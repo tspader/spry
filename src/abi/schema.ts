@@ -5,7 +5,9 @@ export const Direction = z.enum(["row", "column"]);
 export const Align = z.enum(["start", "center", "end", "stretch"]);
 export const Justify = z.enum(["start", "center", "end", "between"]);
 export const Event = z.enum(["click", "submit"]);
-export const Swap = z.enum(["inner"]);
+export const OnResponse = z.enum(["patch", "ignore"]);
+export const Code = z.enum(["invalid", "unauthenticated", "denied", "missing", "conflict", "failed", "unavailable", "timeout", "cancelled"]);
+export const Type = z.enum(["string", "boolean", "int8", "uint8", "int16", "uint16", "int32", "uint32", "float32", "float64"]);
 
 export const BoxProps = z.strictObject({
   direction: Direction.optional(),
@@ -13,13 +15,6 @@ export const BoxProps = z.strictObject({
   padding: z.number().int().optional(),
   align: Align.optional(),
   justify: Justify.optional(),
-});
-
-export const Interaction = z.strictObject({
-  event: Event,
-  action: z.string(),
-  target: z.string(),
-  swap: Swap.optional(),
 });
 
 export const TextProps = z.strictObject({
@@ -41,12 +36,47 @@ export const ButtonProps = z.strictObject({
   text: z.string(),
 });
 
+export const FaultIssue = z.strictObject({
+  path: z.string(),
+  code: z.string(),
+});
+
+export const Fault = z.strictObject({
+  code: Code,
+  message: z.string().optional(),
+  issues: z.array(FaultIssue).optional(),
+});
+
+export const EndpointArg = z.strictObject({
+  type: Type,
+});
+
+export const EndpointArgs = z.strictObject({
+  properties: z.record(z.string(), EndpointArg).optional(),
+  optionalProperties: z.record(z.string(), EndpointArg).optional(),
+});
+
+export const Endpoint = z.strictObject({
+  args: EndpointArgs.optional(),
+});
+
+export const Endpoints = z.record(z.string(), Endpoint);
+
+export type Interaction =
+  | { action: "invoke"; event: z.infer<typeof Event>; handler: string; onResponse: z.infer<typeof OnResponse>; target?: string; body?: Record<string, string> };
+
 export type Node =
-  | { kind: "box"; id?: string; props?: z.infer<typeof BoxProps>; on?: z.infer<typeof Interaction>; children?: Node[] }
+  | { kind: "box"; id?: string; props?: z.infer<typeof BoxProps>; on?: Interaction; children?: Node[] }
   | { kind: "text"; props: z.infer<typeof TextProps>; id?: string }
   | { kind: "link"; props: z.infer<typeof LinkProps>; id?: string }
   | { kind: "input"; props: z.infer<typeof InputProps>; id?: string }
-  | { kind: "button"; props: z.infer<typeof ButtonProps>; id?: string; on?: z.infer<typeof Interaction> };
+  | { kind: "button"; props: z.infer<typeof ButtonProps>; id?: string; on?: Interaction };
+
+export const Interaction: z.ZodType<Interaction> = z.lazy(() =>
+  z.discriminatedUnion("action", [
+    z.strictObject({ action: z.literal("invoke"), event: Event, handler: z.string(), onResponse: OnResponse, target: z.string().optional(), body: z.record(z.string(), z.string()).optional() }),
+  ]),
+);
 
 export const Node: z.ZodType<Node> = z.lazy(() =>
   z.discriminatedUnion("kind", [

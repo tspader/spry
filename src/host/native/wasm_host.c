@@ -15,6 +15,7 @@ struct wasm_host {
   wasm_instance_t* instance;
   wasm_memory_t* memory;
   wasm_func_t* fn_alloc;
+  wasm_func_t* fn_endpoints;
   wasm_func_t* fn_render;
   wasm_func_t* fn_dispatch;
   wasm_func_t* fn_deliver;
@@ -150,12 +151,20 @@ static wasm_trap_t* cb_on_event(void* env, const wasm_val_vec_t* args, wasm_val_
   return SP_NULLPTR;
 }
 
-static wasm_trap_t* cb_submit(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+static wasm_trap_t* cb_invoke(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   (void)results;
   wasm_host_t* h = env;
-  sp_str_t action = host_str(h, (u32)args->data[1].of.i32, (u32)args->data[2].of.i32);
+  sp_str_t handler = host_str(h, (u32)args->data[1].of.i32, (u32)args->data[2].of.i32);
   sp_str_t body = host_str(h, (u32)args->data[3].of.i32, (u32)args->data[4].of.i32);
-  h->backend->submit(h->backend->self, (u32)args->data[0].of.i32, action, body);
+  h->backend->invoke(h->backend->self, (u32)args->data[0].of.i32, handler, body);
+  return SP_NULLPTR;
+}
+
+static wasm_trap_t* cb_report(void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+  (void)results;
+  wasm_host_t* h = env;
+  sp_str_t fault = host_str(h, (u32)args->data[1].of.i32, (u32)args->data[2].of.i32);
+  h->backend->report(h->backend->self, (u32)args->data[0].of.i32, fault);
   return SP_NULLPTR;
 }
 
@@ -207,7 +216,8 @@ static const host_fn_def_t HOST_FNS[] = {
   { "append_child",   cb_append,          2, 0 },
   { "set_root",       cb_set_root,        1, 0 },
   { "on_event",       cb_on_event,        3, 0 },
-  { "submit",         cb_submit,          5, 0 },
+  { "invoke",         cb_invoke,          5, 0 },
+  { "report",         cb_report,          3, 0 },
   { "clear_children", cb_clear_children,  1, 0 },
   { "get_value",      cb_get_value,       3, 1 },
   { "fatal",          cb_fatal,           2, 0 },
@@ -339,6 +349,7 @@ wasm_host_t* wasm_host_new(sp_mem_t mem, sp_str_t wasm_path) {
   sp_for(i, exports.size) {
     const wasm_name_t* name = wasm_exporttype_name(export_types.data[i]);
     if (name_eq(name, "alloc")) h->fn_alloc = wasm_extern_as_func(exports.data[i]);
+    else if (name_eq(name, "endpoints")) h->fn_endpoints = wasm_extern_as_func(exports.data[i]);
     else if (name_eq(name, "render")) h->fn_render = wasm_extern_as_func(exports.data[i]);
     else if (name_eq(name, "dispatch")) h->fn_dispatch = wasm_extern_as_func(exports.data[i]);
     else if (name_eq(name, "deliver")) h->fn_deliver = wasm_extern_as_func(exports.data[i]);
@@ -346,7 +357,7 @@ wasm_host_t* wasm_host_new(sp_mem_t mem, sp_str_t wasm_path) {
   }
   wasm_exporttype_vec_delete(&export_types);
 
-  if (!h->fn_alloc || !h->fn_render || !h->fn_dispatch || !h->fn_deliver || !h->memory) {
+  if (!h->fn_alloc || !h->fn_endpoints || !h->fn_render || !h->fn_dispatch || !h->fn_deliver || !h->memory) {
     sp_log("wasm_host: runtime is missing required exports");
     return SP_NULLPTR;
   }
@@ -369,6 +380,20 @@ static u32 wasm_host_copy_in(wasm_host_t* h, sp_str_t bytes) {
   return ptr;
 }
 
+s32 wasm_host_endpoints(wasm_host_t* h, sp_str_t endpoints_json) {
+  u32 ptr = wasm_host_copy_in(h, endpoints_json);
+  wasm_val_t args[2] = {
+    { .kind = WASM_I32, .of = { .i32 = (s32)ptr } },
+    { .kind = WASM_I32, .of = { .i32 = (s32)endpoints_json.len } },
+  };
+  wasm_val_t res[1];
+  wasm_val_vec_t av = { .size = 2, .data = args };
+  wasm_val_vec_t rv = { .size = 1, .data = res };
+  if (wasm_func_call(h->fn_endpoints, &av, &rv)) { sp_log("wasm_host: endpoints trapped"); return -1; }
+
+  return (s32)res[0].of.i32;
+}
+
 static void wasm_host_dispatch(void* ctx, u32 token) {
   wasm_host_t* h = ctx;
   wasm_val_t args[1] = { { .kind = WASM_I32, .of = { .i32 = (s32)token } } };
@@ -377,15 +402,16 @@ static void wasm_host_dispatch(void* ctx, u32 token) {
   if (wasm_func_call(h->fn_dispatch, &av, &rv)) sp_log("wasm_host: dispatch trapped");
 }
 
-static void wasm_host_deliver(void* ctx, u32 token, sp_str_t json) {
+static void wasm_host_deliver(void* ctx, u32 token, u32 outcome, sp_str_t body) {
   wasm_host_t* h = ctx;
-  u32 ptr = wasm_host_copy_in(h, json);
-  wasm_val_t args[3] = {
+  u32 ptr = wasm_host_copy_in(h, body);
+  wasm_val_t args[4] = {
     { .kind = WASM_I32, .of = { .i32 = (s32)token } },
+    { .kind = WASM_I32, .of = { .i32 = (s32)outcome } },
     { .kind = WASM_I32, .of = { .i32 = (s32)ptr } },
-    { .kind = WASM_I32, .of = { .i32 = (s32)json.len } },
+    { .kind = WASM_I32, .of = { .i32 = (s32)body.len } },
   };
-  wasm_val_vec_t av = { .size = 3, .data = args };
+  wasm_val_vec_t av = { .size = 4, .data = args };
   wasm_val_vec_t rv = { .size = 0, .data = SP_NULLPTR };
   if (wasm_func_call(h->fn_deliver, &av, &rv)) sp_log("wasm_host: deliver trapped");
 }

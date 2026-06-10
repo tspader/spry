@@ -51,9 +51,14 @@ static void stub_on_event(void* self, void* node, u32 event, u32 token) {
   sp_log("on_event #{} event={} token={}", sp_fmt_int((s64)(u64)node), sp_fmt_int(event), sp_fmt_int(token));
 }
 
-static void stub_submit(void* self, u32 token, sp_str_t url, sp_str_t body) {
+static void stub_invoke(void* self, u32 token, sp_str_t handler, sp_str_t body) {
   (void)self;
-  sp_log("submit token={} url=\"{}\" body=\"{}\"", sp_fmt_int(token), sp_fmt_str(url), sp_fmt_str(body));
+  sp_log("invoke token={} handler=\"{}\" body=\"{}\"", sp_fmt_int(token), sp_fmt_str(handler), sp_fmt_str(body));
+}
+
+static void stub_report(void* self, u32 token, sp_str_t fault) {
+  (void)self;
+  sp_log("report token={} fault={}", sp_fmt_int(token), sp_fmt_str(fault));
 }
 
 static void stub_clear_children(void* self, void* node) {
@@ -64,9 +69,10 @@ static void stub_clear_children(void* self, void* node) {
 static u32 stub_get_value(void* self, void* node, c8* out, u32 cap) {
   (void)self;
   (void)node;
-  (void)out;
-  (void)cap;
-  return 0;
+  sp_str_t canned = sp_str_lit("alice");
+  u32 n = sp_min(canned.len, cap);
+  sp_for(i, n) out[i] = canned.data[i];
+  return n;
 }
 
 static void stub_fatal(void* self, sp_str_t message) {
@@ -94,7 +100,8 @@ backend_t stub_backend_make(sp_mem_t mem) {
     .append_child = stub_append,
     .set_root = stub_set_root,
     .on_event = stub_on_event,
-    .submit = stub_submit,
+    .invoke = stub_invoke,
+    .report = stub_report,
     .clear_children = stub_clear_children,
     .get_value = stub_get_value,
     .fatal = stub_fatal,

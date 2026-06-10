@@ -1,0 +1,20 @@
+{
+  "definitions": {
+    "fault": {
+      "properties": {
+        "code": { "enum": ["invalid", "unauthenticated", "denied", "missing", "conflict", "failed", "unavailable", "timeout", "cancelled"] }
+      },
+      "optionalProperties": {
+        "message": { "type": "string" },
+        "issues": { "elements": { "ref": "fault_issue" } }
+      }
+    },
+    "fault_issue": {
+      "properties": {
+        "path": { "type": "string" },
+        "code": { "type": "string" }
+      }
+    }
+  },
+  "ref": "fault"
+}

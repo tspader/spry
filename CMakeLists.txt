@@ -34,10 +34,16 @@ add_custom_command(
   VERBATIM)
 add_custom_target(abi DEPENDS ${ROOT}/src/abi/abi.gen.ts)
 
+set(JTD_SCHEMAS ${ROOT}/src/abi/ui.jtd.json ${ROOT}/src/abi/fault.jtd.json ${ROOT}/src/abi/endpoints.jtd.json)
+set(AST_GEN "")
+foreach(name ui fault endpoints)
+  list(APPEND AST_GEN ${ROOT}/src/abi/${name}.gen.h ${ROOT}/src/abi/${name}.enums.gen.h ${ROOT}/src/abi/${name}.enums.gen.ts)
+endforeach()
+
 add_custom_command(
-  OUTPUT ${ROOT}/src/abi/ui.gen.h ${ROOT}/src/abi/ui.enums.gen.h ${ROOT}/src/abi/ui.enums.gen.ts
+  OUTPUT ${AST_GEN}
   COMMAND bun run ${ROOT}/tools/gen-ast.ts
-  DEPENDS ${ROOT}/src/abi/ui.jtd.json ${ROOT}/tools/gen-ast.ts ${ROOT}/include/spry/ast.h
+  DEPENDS ${JTD_SCHEMAS} ${ROOT}/tools/gen-ast.ts ${ROOT}/include/spry/ast.h
   WORKING_DIRECTORY ${ROOT}
   VERBATIM)
 add_custom_target(ast DEPENDS ${ROOT}/src/abi/ui.gen.h)
@@ -45,7 +51,7 @@ add_custom_target(ast DEPENDS ${ROOT}/src/abi/ui.gen.h)
 add_custom_command(
   OUTPUT ${ROOT}/src/abi/schema.ts
   COMMAND bun run ${ROOT}/tools/gen-zod.ts
-  DEPENDS ${ROOT}/src/abi/ui.jtd.json ${ROOT}/tools/gen-zod.ts
+  DEPENDS ${JTD_SCHEMAS} ${ROOT}/tools/gen-zod.ts
   WORKING_DIRECTORY ${ROOT}
   VERBATIM)
 add_custom_target(zod DEPENDS ${ROOT}/src/abi/schema.ts)
@@ -66,7 +72,7 @@ add_custom_command(
   COMMAND zig cc --target=wasm32-freestanding -nostdlib -Wl,--no-entry,--export-dynamic
           -o ${RUNTIME_WASM} ${_rt}/runtime.o ${_rt}/ast.o ${_rt}/yyjson.o
   DEPENDS ${ROOT}/src/runtime/runtime.c ${ROOT}/src/ast/ast.c
-          ${ROOT}/src/abi/ui.gen.h ${YYJSON_DIR}/yyjson.c ${HEADERS}
+          ${AST_GEN} ${YYJSON_DIR}/yyjson.c ${HEADERS}
   VERBATIM)
 
 set(RUNTIME_WEB  ${WEB_OUT}/runtime.wasm)
@@ -95,13 +101,16 @@ add_custom_target(web ALL DEPENDS ${WEB_OUT}/host.bundle.js)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK4 REQUIRED IMPORTED_TARGET gtk4)
+pkg_check_modules(SQLITE3 REQUIRED IMPORTED_TARGET sqlite3)
 
 add_executable(app
   ${ROOT}/src/host/native/wasm_host.c
   ${ROOT}/src/backend/gtk/gtk_backend.c
+  ${ROOT}/src/rpc/rpc.c
+  ${ROOT}/example/native/handlers.c
   ${ROOT}/example/native/main.c)
-target_include_directories(app PRIVATE ${ROOT}/include ${ROOT}/vendor ${ROOT}/src)
-target_link_libraries(app PRIVATE PkgConfig::GTK4 wasmer)
+target_include_directories(app PRIVATE ${ROOT}/include ${ROOT}/vendor ${ROOT}/src ${ROOT}/example/native)
+target_link_libraries(app PRIVATE PkgConfig::GTK4 PkgConfig::SQLITE3 wasmer yyjson)
 set_target_properties(app PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${STORE_TARGET}/gtk)
 add_dependencies(app runtime)
@@ -115,6 +124,15 @@ target_link_libraries(native-smoke PRIVATE wasmer)
 set_target_properties(native-smoke PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${TEST_OUT})
 add_dependencies(native-smoke runtime)
+
+add_executable(rpc-smoke
+  ${ROOT}/src/rpc/rpc.c
+  ${ROOT}/example/native/handlers.c
+  ${ROOT}/example/native/rpc_smoke.c)
+target_include_directories(rpc-smoke PRIVATE ${ROOT}/include ${ROOT}/vendor ${ROOT}/example/native)
+target_link_libraries(rpc-smoke PRIVATE PkgConfig::SQLITE3 yyjson)
+set_target_properties(rpc-smoke PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${TEST_OUT})
 
 add_executable(ast-tests
   ${ROOT}/test/ast/main.c

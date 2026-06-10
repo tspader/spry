@@ -2,13 +2,19 @@
 #define BACKEND_H
 
 #include "sp.h"
+#include "spry/abi.h"
 
 typedef struct backend backend_t;
 
 typedef struct {
+  deliver_outcome_t outcome;
+  sp_str_t body;
+} spry_reply_t;
+
+typedef struct {
   void* ctx;
   void (*dispatch)(void* ctx, u32 token);
-  void (*deliver)(void* ctx, u32 token, sp_str_t json);
+  void (*deliver)(void* ctx, u32 token, u32 outcome, sp_str_t body);
 } host_iface_t;
 
 struct backend {
@@ -28,7 +34,8 @@ struct backend {
   void  (*append_child)(void* self, void* parent, void* child);
   void  (*set_root)(void* self, void* node);
   void  (*on_event)(void* self, void* node, u32 event, u32 token);
-  void  (*submit)(void* self, u32 token, sp_str_t action, sp_str_t body);
+  void  (*invoke)(void* self, u32 token, sp_str_t handler, sp_str_t body);
+  void  (*report)(void* self, u32 token, sp_str_t fault);
   void  (*clear_children)(void* self, void* node);
   u32   (*get_value)(void* self, void* node, c8* out, u32 cap);
   void  (*fatal)(void* self, sp_str_t message);

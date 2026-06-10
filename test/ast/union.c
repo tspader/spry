@@ -96,9 +96,12 @@ static void compare_tree(s32* utest_result, const void* actual_v, const void* ex
     const spry_button_t* btn = &box->children[1].as.button;
     EXPECT_TRUE(btn->on != SP_NULLPTR);
     if (btn->on) {
-      EXPECT_EQ((s32)SPRY_EVENT_CLICK, (s32)btn->on->event);
-      EXPECT_EQ((s32)SPRY_SWAP_INNER, (s32)btn->on->swap);
-      ast_expect_str(utest_result, btn->on->action, "/a");
+      EXPECT_EQ((s32)SPRY_INTERACTION_KIND_INVOKE, (s32)btn->on->kind);
+      const spry_invoke_t* invoke = &btn->on->as.invoke;
+      EXPECT_EQ((s32)SPRY_EVENT_CLICK, (s32)invoke->event);
+      EXPECT_EQ((s32)SPRY_ONRESPONSE_PATCH, (s32)invoke->onResponse);
+      ast_expect_str(utest_result, invoke->handler, "greet");
+      ast_expect_str(utest_result, invoke->target, "root");
     }
   }
 }

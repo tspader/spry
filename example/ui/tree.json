@@ -4,48 +4,62 @@
   "children": [
     {
       "kind": "box",
-      "props": { "direction": "row", "gap": 12, "justify": "between" },
+      "props": { "direction": "row", "gap": 12, "align": "center", "justify": "between" },
       "children": [
-        { "kind": "text", "props": { "text": "Left" } },
-        { "kind": "text", "props": { "text": "Middle" } },
-        { "kind": "text", "props": { "text": "Right" } }
-      ]
-    },
-    {
-      "kind": "box",
-      "props": { "direction": "column", "gap": 6, "padding": 12 },
-      "children": [
-        { "kind": "text", "props": { "text": "Item one" } },
-        { "kind": "text", "props": { "text": "Item two" } },
-        { "kind": "text", "props": { "text": "Item three" } }
-      ]
-    },
-    {
-      "kind": "box",
-      "props": { "direction": "row", "gap": 8, "align": "center" },
-      "children": [
-        { "kind": "text", "props": { "text": "A link:" } },
-        { "kind": "link", "props": { "text": "hypermedia", "href": "https://hypermedia.systems" } }
-      ]
-    },
-    {
-      "kind": "box",
-      "props": { "direction": "row", "gap": 8, "align": "center" },
-      "children": [
-        { "kind": "input", "props": { "name": "name", "placeholder": "your name" } },
+        { "kind": "text", "props": { "text": "spry sqlite browser" } },
         {
           "kind": "button",
-          "props": { "text": "Greet" },
-          "on": { "event": "click", "action": "/api/greet", "target": "result", "swap": "inner" }
+          "props": { "text": "Refresh tables" },
+          "on": { "action": "invoke", "event": "click", "handler": "tables", "onResponse": "patch", "target": "tables" }
         }
       ]
     },
     {
       "kind": "box",
-      "id": "result",
-      "props": { "direction": "row", "gap": 8 },
+      "props": { "direction": "row", "gap": 24, "align": "start" },
       "children": [
-        { "kind": "text", "props": { "text": "(greeting appears here)" } }
+        {
+          "kind": "box",
+          "id": "tables",
+          "props": { "direction": "column", "gap": 6 },
+          "children": [
+            { "kind": "text", "props": { "text": "(refresh to load tables)" } }
+          ]
+        },
+        {
+          "kind": "box",
+          "props": { "direction": "column", "gap": 12 },
+          "children": [
+            {
+              "kind": "box",
+              "id": "grid",
+              "props": { "direction": "column", "gap": 4 },
+              "children": [
+                { "kind": "text", "props": { "text": "(select a table)" } }
+              ]
+            },
+            { "kind": "box", "id": "editor", "props": { "direction": "column", "gap": 8 } }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "box",
+      "props": { "direction": "column", "gap": 8 },
+      "children": [
+        {
+          "kind": "box",
+          "props": { "direction": "row", "gap": 8, "align": "center" },
+          "children": [
+            { "kind": "input", "props": { "name": "sql", "placeholder": "select * from albums" } },
+            {
+              "kind": "button",
+              "props": { "text": "Run" },
+              "on": { "action": "invoke", "event": "click", "handler": "exec", "onResponse": "patch", "target": "sql-out" }
+            }
+          ]
+        },
+        { "kind": "box", "id": "sql-out", "props": { "direction": "column", "gap": 4 } }
       ]
     }
   ]

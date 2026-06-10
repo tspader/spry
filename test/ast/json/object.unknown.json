@@ -1,1 +1,1 @@
-{ "event": "click", "action": "/a", "target": "root", "bogus": 1 }
+{ "event": "click", "handler": "greet", "onResponse": "patch", "target": "root", "bogus": 1 }

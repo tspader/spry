@@ -25,7 +25,7 @@ export function domBackend(root: HTMLElement, iface: HostIface): Backend<HTMLEle
   return {
     capabilities: () =>
       abi.HOST_CAP_ELEMENT | abi.HOST_CAP_TEXT | abi.HOST_CAP_FLEX | abi.HOST_CAP_LINK |
-      abi.HOST_CAP_INPUT | abi.HOST_CAP_EVENTS | abi.HOST_CAP_SUBMIT,
+      abi.HOST_CAP_INPUT | abi.HOST_CAP_EVENTS | abi.HOST_CAP_INVOKE | abi.HOST_CAP_REPORT,
 
     createElement(kind) {
       switch (kind) {
@@ -103,15 +103,24 @@ export function domBackend(root: HTMLElement, iface: HostIface): Backend<HTMLEle
       });
     },
 
-    submit(token, action, body) {
-      fetch(action, {
+    invoke(token, handler, body) {
+      fetch(`/api/${handler}`, {
         method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
+        headers: { "content-type": "application/json" },
         body,
+        signal: AbortSignal.timeout(10_000),
       })
-        .then((r) => r.text())
-        .then((json) => iface.deliver(token, json))
-        .catch((err) => console.error("submit failed", err));
+        .then(async (r) => iface.deliver(token, r.status, await r.text()))
+        .catch((err: unknown) => {
+          const name = err instanceof DOMException ? err.name : "";
+          if (name === "TimeoutError") iface.deliver(token, abi.DELIVER_TIMEOUT, "");
+          else if (name === "AbortError") iface.deliver(token, abi.DELIVER_CANCELLED, "");
+          else iface.deliver(token, abi.DELIVER_UNREACHABLE, "");
+        });
+    },
+
+    report(token, fault) {
+      console.error(`spry: endpoint fault (token ${token}):`, fault);
     },
 
     clearChildren(node) {

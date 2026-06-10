@@ -1,6 +1,6 @@
 export interface HostIface {
   dispatch(token: number): void;
-  deliver(token: number, json: string): void;
+  deliver(token: number, outcome: number, body: string): void;
 }
 
 export interface Backend<Node> {
@@ -19,7 +19,8 @@ export interface Backend<Node> {
   appendChild(parent: Node, child: Node): void;
   setRoot(node: Node): void;
   onEvent(node: Node, event: number, token: number): void;
-  submit(token: number, action: string, body: string): void;
+  invoke(token: number, handler: string, body: string): void;
+  report(token: number, fault: string): void;
   clearChildren(node: Node): void;
   getValue(node: Node): string;
   fatal(message: string): void;

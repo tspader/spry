@@ -8,6 +8,8 @@ typedef struct spry_node spry_node_t;
 typedef struct spry_box spry_box_t;
 typedef struct spry_box_props spry_box_props_t;
 typedef struct spry_interaction spry_interaction_t;
+typedef struct spry_invoke spry_invoke_t;
+typedef struct spry_invoke_body_entry spry_invoke_body_entry_t;
 typedef struct spry_text spry_text_t;
 typedef struct spry_text_props spry_text_props_t;
 typedef struct spry_link spry_link_t;
@@ -25,11 +27,24 @@ typedef struct spry_box_props {
   spry_justify_t justify;
 } spry_box_props_t;
 
-typedef struct spry_interaction {
+typedef struct spry_invoke_body_entry {
+  sp_str_t key;
+  sp_str_t value;
+} spry_invoke_body_entry_t;
+
+typedef struct spry_invoke {
   spry_event_t event;
-  sp_str_t action;
+  sp_str_t handler;
+  spry_onResponse_t onResponse;
   sp_str_t target;
-  spry_swap_t swap;
+  sp_da(spry_invoke_body_entry_t) body;
+} spry_invoke_t;
+
+typedef struct spry_interaction {
+  spry_interaction_kind_t kind;
+  union {
+    spry_invoke_t invoke;
+  } as;
 } spry_interaction_t;
 
 typedef struct spry_box {
@@ -90,19 +105,29 @@ typedef struct spry_node {
   } as;
 } spry_node_t;
 
-typedef spry_node_t spry_ast_root_t;
-#define SPRY_AST_ROOT_TYPE spry_node_type
+#ifndef SPRY_GEN_SCALAR_S32
+#define SPRY_GEN_SCALAR_S32
+static const spry_ast_type_t spry_s32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S32 } };
+#endif
 
+#ifndef SPRY_GEN_SCALAR_BOOL
+#define SPRY_GEN_SCALAR_BOOL
 static const spry_ast_type_t spry_bool_type = { .kind = SPRY_AST_BOOL };
+#endif
+
+#ifndef SPRY_GEN_SCALAR_STR
+#define SPRY_GEN_SCALAR_STR
 static const spry_ast_type_t spry_str_type = { .kind = SPRY_AST_STR };
+#endif
 
 static const spry_ast_type_t spry_direction_type;
-static const spry_ast_type_t spry_s32_type;
 static const spry_ast_type_t spry_align_type;
 static const spry_ast_type_t spry_justify_type;
 static const spry_ast_type_t spry_box_props_type;
 static const spry_ast_type_t spry_event_type;
-static const spry_ast_type_t spry_swap_type;
+static const spry_ast_type_t spry_onResponse_type;
+static const spry_ast_type_t spry_invoke_body_type;
+static const spry_ast_type_t spry_invoke_type;
 static const spry_ast_type_t spry_interaction_type;
 static const spry_ast_type_t spry_node_array_type;
 static const spry_ast_type_t spry_box_type;
@@ -118,8 +143,6 @@ static const spry_ast_type_t spry_node_type;
 
 static const c8* const spry_direction_names[] = { "row", "column" };
 static const spry_ast_type_t spry_direction_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_direction_names, .count = 2 } };
-
-static const spry_ast_type_t spry_s32_type = { .kind = SPRY_AST_NUMBER, .as.number = { .repr = SPRY_NUM_S32 } };
 
 static const c8* const spry_align_names[] = { "start", "center", "end", "stretch" };
 static const spry_ast_type_t spry_align_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_align_names, .count = 4 } };
@@ -139,16 +162,24 @@ static const spry_ast_type_t spry_box_props_type = { .kind = SPRY_AST_OBJECT, .a
 static const c8* const spry_event_names[] = { "click", "submit" };
 static const spry_ast_type_t spry_event_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_event_names, .count = 2 } };
 
-static const c8* const spry_swap_names[] = { "inner" };
-static const spry_ast_type_t spry_swap_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_swap_names, .count = 1 } };
+static const c8* const spry_onResponse_names[] = { "patch", "ignore" };
+static const spry_ast_type_t spry_onResponse_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_onResponse_names, .count = 2 } };
 
-static const spry_ast_field_t spry_interaction_fields[] = {
-  { .key = "event", .offset = offsetof(spry_interaction_t, event), .type = &spry_event_type, .required = true, .is_ptr = false, .size = 0 },
-  { .key = "action", .offset = offsetof(spry_interaction_t, action), .type = &spry_str_type, .required = true, .is_ptr = false, .size = 0 },
-  { .key = "target", .offset = offsetof(spry_interaction_t, target), .type = &spry_str_type, .required = true, .is_ptr = false, .size = 0 },
-  { .key = "swap", .offset = offsetof(spry_interaction_t, swap), .type = &spry_swap_type, .required = false, .is_ptr = false, .size = 0 },
+static const spry_ast_type_t spry_invoke_body_type = { .kind = SPRY_AST_VALUES, .as.values = { .value = &spry_str_type, .stride = sizeof(spry_invoke_body_entry_t), .key_offset = offsetof(spry_invoke_body_entry_t, key), .value_offset = offsetof(spry_invoke_body_entry_t, value) } };
+
+static const spry_ast_field_t spry_invoke_fields[] = {
+  { .key = "event", .offset = offsetof(spry_invoke_t, event), .type = &spry_event_type, .required = true, .is_ptr = false, .size = 0 },
+  { .key = "handler", .offset = offsetof(spry_invoke_t, handler), .type = &spry_str_type, .required = true, .is_ptr = false, .size = 0 },
+  { .key = "onResponse", .offset = offsetof(spry_invoke_t, onResponse), .type = &spry_onResponse_type, .required = true, .is_ptr = false, .size = 0 },
+  { .key = "target", .offset = offsetof(spry_invoke_t, target), .type = &spry_str_type, .required = false, .is_ptr = false, .size = 0 },
+  { .key = "body", .offset = offsetof(spry_invoke_t, body), .type = &spry_invoke_body_type, .required = false, .is_ptr = false, .size = 0 },
 };
-static const spry_ast_type_t spry_interaction_type = { .kind = SPRY_AST_OBJECT, .as.object = { .fields = spry_interaction_fields, .count = 4 } };
+static const spry_ast_type_t spry_invoke_type = { .kind = SPRY_AST_OBJECT, .as.object = { .fields = spry_invoke_fields, .count = 5 } };
+
+static const spry_ast_variant_t spry_interaction_variants[] = {
+  { .tag = "invoke", .value = SPRY_INTERACTION_KIND_INVOKE, .type = &spry_invoke_type },
+};
+static const spry_ast_type_t spry_interaction_type = { .kind = SPRY_AST_UNION, .as.uni = { .tag_key = "action", .tag_offset = offsetof(spry_interaction_t, kind), .payload_offset = offsetof(spry_interaction_t, as), .variants = spry_interaction_variants, .count = 1 } };
 
 static const spry_ast_type_t spry_node_array_type = { .kind = SPRY_AST_ARRAY, .as.array = { .element = &spry_node_type, .stride = sizeof(spry_node_t) } };
 

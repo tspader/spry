@@ -16,7 +16,7 @@ typedef struct {
 typedef struct {
   host_iface_t host;
   u32 token;
-  sp_str_t json;
+  spry_reply_t reply;
 } gtk_deliver_t;
 
 static GtkAlign align_to_gtk(spry_align_t value) {
@@ -178,19 +178,24 @@ static void gtk_on_event(void* self, void* node, u32 event, u32 token) {
 
 static gboolean gtk_deliver_idle(gpointer data) {
   gtk_deliver_t* d = data;
-  d->host.deliver(d->host.ctx, d->token, d->json);
+  d->host.deliver(d->host.ctx, d->token, (u32)d->reply.outcome, d->reply.body);
   return G_SOURCE_REMOVE;
 }
 
-static void gtk_submit(void* self, u32 token, sp_str_t action, sp_str_t body) {
+static void gtk_invoke(void* self, u32 token, sp_str_t handler, sp_str_t body) {
   gtk_ctx_t* ctx = self;
-  sp_str_t json = ctx->resolver(ctx->resolver_ctx, action, body);
+  spry_reply_t reply = ctx->resolver(ctx->resolver_ctx, handler, body);
   gtk_deliver_t* d = sp_alloc(ctx->mem, sizeof(gtk_deliver_t));
   *d = sp_zero_s(gtk_deliver_t);
   d->host = ctx->host;
   d->token = token;
-  d->json = json;
+  d->reply = reply;
   g_idle_add(gtk_deliver_idle, d);
+}
+
+static void gtk_report(void* self, u32 token, sp_str_t fault) {
+  (void)self;
+  sp_log("gtk backend fault: token={} {}", sp_fmt_uint(token), sp_fmt_str(fault));
 }
 
 static void gtk_clear_children(void* self, void* node) {
@@ -243,7 +248,8 @@ backend_t gtk_backend_make(sp_mem_t mem, GtkWindow* window, host_iface_t host, g
     .append_child = gtk_append,
     .set_root = gtk_set_root,
     .on_event = gtk_on_event,
-    .submit = gtk_submit,
+    .invoke = gtk_invoke,
+    .report = gtk_report,
     .clear_children = gtk_clear_children,
     .get_value = gtk_get_value,
     .fatal = gtk_fatal,

@@ -1,0 +1,24 @@
+{
+  "definitions": {
+    "endpoints": {
+      "values": { "ref": "endpoint" }
+    },
+    "endpoint": {
+      "optionalProperties": {
+        "args": { "ref": "endpoint_args" }
+      }
+    },
+    "endpoint_args": {
+      "optionalProperties": {
+        "properties": { "values": { "ref": "endpoint_arg" } },
+        "optionalProperties": { "values": { "ref": "endpoint_arg" } }
+      }
+    },
+    "endpoint_arg": {
+      "properties": {
+        "type": { "enum": ["string", "boolean", "int8", "uint8", "int16", "uint16", "int32", "uint32", "float32", "float64"] }
+      }
+    }
+  },
+  "ref": "endpoints"
+}

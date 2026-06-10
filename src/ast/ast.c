@@ -203,6 +203,30 @@ spry_err_t spry_ast_parse(const spry_ast_type_t* type, yyjson_val* val, spry_ctx
       *(void**)out = arr;
       return first;
     }
+    case SPRY_AST_VALUES: {
+      if (!yyjson_is_obj(val)) return spry_issue_code(ctx, SPRY_ERR_AST_EXPECTED_OBJECT);
+      const spry_ast_values_t* values = &type->as.values;
+      u32 stride = values->stride;
+      void* arr = sp_da_init_ex(ctx->mem, stride);
+      spry_err_t first = SPRY_OK;
+      size_t idx, max;
+      yyjson_val* key;
+      yyjson_val* elem;
+      yyjson_obj_foreach(val, idx, max, key, elem) {
+        arr = sp_da_grow_ex(arr, stride, 1);
+        sp_da_header_t* head = sp_da_head(arr);
+        void* slot = (u8*)arr + head->size * stride;
+        head->size += 1;
+        sp_mem_zero(slot, stride);
+        *(sp_str_t*)((u8*)slot + values->key_offset) = spry_json_str(ctx, key);
+        spry_path_push_key(ctx, yyjson_get_str(key));
+        spry_err_t code = spry_ast_parse(values->value, elem, ctx, (u8*)slot + values->value_offset);
+        spry_path_pop(ctx);
+        if (code && !first) first = code;
+      }
+      *(void**)out = arr;
+      return first;
+    }
     case SPRY_AST_OBJECT: {
       return spry_ast_parse_object(&type->as.object, val, ctx, out, SP_NULLPTR);
     }
