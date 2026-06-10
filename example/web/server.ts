@@ -8,7 +8,6 @@ import endpoints from "../ui/endpoints.json";
 import tree from "../ui/tree.json";
 
 const root = new URL("../../", import.meta.url);
-const webDir = new URL(".build/store/web/example/", root);
 const dbPath = new URL("example/db/demo.db", root);
 
 const ROW_LIMIT = 20;
@@ -86,32 +85,34 @@ function tableGrid(table: string): Node {
       row(
         { gap: 16 },
         ...columns.map((c) =>
-          button(
-            cellText(r[c]),
-            invoke({
+          button({
+            text: cellText(r[c]),
+            on: invoke({
               handler: "edit_cell",
               onResponse: "patch",
               target: "editor",
               body: { table, rowid: String(r["_spry_rowid"]), column: c },
             }),
-          ),
+          }),
         ),
       ),
     ),
   );
 }
 
-const app = spryApp({
+const app = await spryApp({
   endpoints,
   tree,
-  webDir,
   handlers: {
     tables() {
       return column(
         { gap: 6 },
         text("tables"),
         ...tableNames().map((name) =>
-          button(name, invoke({ handler: "open_table", onResponse: "patch", target: "grid", body: { table: name } })),
+          button({
+            text: name,
+            on: invoke({ handler: "open_table", onResponse: "patch", target: "grid", body: { table: name } }),
+          }),
         ),
       );
     },
@@ -139,16 +140,16 @@ const app = spryApp({
         text(`editing ${table}[${rowid}].${col}`),
         row(
           { gap: 8, align: "center" },
-          input("value", { value: cellText(current.value) }),
-          button(
-            "Save",
-            invoke({
+          input({ name: "value", value: cellText(current.value) }),
+          button({
+            text: "Save",
+            on: invoke({
               handler: "save_cell",
               onResponse: "patch",
               target: "grid",
               body: { table, rowid: String(rowid), column: col },
             }),
-          ),
+          }),
         ),
       );
     },

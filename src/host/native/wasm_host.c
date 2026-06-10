@@ -1,8 +1,10 @@
-#define SP_IMPLEMENTATION
 #include "sp.h"
 #include "wasmer.h"
 #include "spry/backend/backend.h"
 #include "spry/host.h"
+
+extern const unsigned char spry_runtime_wasm[];
+extern const unsigned int spry_runtime_wasm_len;
 
 struct wasm_host {
   sp_mem_t mem;
@@ -256,7 +258,9 @@ wasm_host_t* wasm_host_new(sp_mem_t mem, sp_str_t wasm_path) {
   h->handles = sp_da_new(mem, void*);
 
   sp_str_t wasm_bytes;
-  if (sp_io_read_file(mem, wasm_path, &wasm_bytes) != SP_OK) {
+  if (sp_str_empty(wasm_path)) {
+    wasm_bytes = sp_str((const c8*)spry_runtime_wasm, spry_runtime_wasm_len);
+  } else if (sp_io_read_file(mem, wasm_path, &wasm_bytes) != SP_OK) {
     sp_log("wasm_host: failed to read {}", sp_fmt_str(wasm_path));
     return SP_NULLPTR;
   }

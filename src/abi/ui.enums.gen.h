@@ -38,8 +38,8 @@ typedef enum {
 } spry_event_t;
 
 typedef enum {
-  SPRY_ONRESPONSE_PATCH,
   SPRY_ONRESPONSE_IGNORE,
+  SPRY_ONRESPONSE_PATCH,
 } spry_onResponse_t;
 
 #endif

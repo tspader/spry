@@ -261,6 +261,182 @@ spry_err_t spry_ast_parse(const spry_ast_type_t* type, yyjson_val* val, spry_ctx
   return SPRY_OK;
 }
 
+void spry_json_push(sp_da(c8)* out, sp_str_t raw) {
+  sp_for(i, raw.len) sp_da_push(*out, raw.data[i]);
+}
+
+void spry_json_push_str(sp_da(c8)* out, sp_str_t value) {
+  static const c8 hex[] = "0123456789abcdef";
+  sp_da_push(*out, '"');
+  sp_for(i, value.len) {
+    c8 c = value.data[i];
+    if (c == '"' || c == '\\') {
+      sp_da_push(*out, '\\');
+      sp_da_push(*out, c);
+    } else if ((u8)c < 0x20) {
+      spry_json_push(out, sp_str_lit("\\u00"));
+      sp_da_push(*out, hex[((u8)c >> 4) & 0xf]);
+      sp_da_push(*out, hex[(u8)c & 0xf]);
+    } else {
+      sp_da_push(*out, c);
+    }
+  }
+  sp_da_push(*out, '"');
+}
+
+static bool spry_ast_would_write(const spry_ast_type_t* type, const void* value);
+
+static bool spry_ast_field_present(const spry_ast_field_t* field, const void* obj) {
+  const void* slot = (const u8*)obj + field->offset;
+  if (field->is_ptr) return *(void* const*)slot != SP_NULLPTR;
+  if (field->required) return true;
+  return spry_ast_would_write(field->type, slot);
+}
+
+static bool spry_ast_would_write(const spry_ast_type_t* type, const void* value) {
+  switch (type->kind) {
+    case SPRY_AST_BOOL: return *(const bool*)value;
+    case SPRY_AST_NUMBER: {
+      switch (type->as.number.repr) {
+        case SPRY_NUM_S8:  return *(const s8*)value != 0;
+        case SPRY_NUM_U8:  return *(const u8*)value != 0;
+        case SPRY_NUM_S16: return *(const s16*)value != 0;
+        case SPRY_NUM_U16: return *(const u16*)value != 0;
+        case SPRY_NUM_S32: return *(const s32*)value != 0;
+        case SPRY_NUM_U32: return *(const u32*)value != 0;
+        case SPRY_NUM_F32: return *(const f32*)value != 0;
+        case SPRY_NUM_F64: return *(const f64*)value != 0;
+      }
+      return false;
+    }
+    case SPRY_AST_STR: return !sp_str_empty(*(const sp_str_t*)value);
+    case SPRY_AST_ENUM: return *(const s32*)value != 0;
+    case SPRY_AST_ARRAY:
+    case SPRY_AST_VALUES: return sp_da_size(*(void* const*)value) > 0;
+    case SPRY_AST_OBJECT: {
+      sp_for(i, type->as.object.count) {
+        if (spry_ast_field_present(&type->as.object.fields[i], value)) return true;
+      }
+      return false;
+    }
+    case SPRY_AST_UNION: return true;
+  }
+  return false;
+}
+
+static sp_str_t spry_float_str(sp_mem_t mem, f64 value) {
+  sp_str_t s = sp_fmt(mem, "{}", sp_fmt_float(value)).value;
+  bool fractional = false;
+  sp_for(i, s.len) {
+    if (s.data[i] == '.') { fractional = true; break; }
+  }
+  if (!fractional) return s;
+  u32 len = s.len;
+  while (len && s.data[len - 1] == '0') len--;
+  if (len && s.data[len - 1] == '.') len--;
+  return sp_str(s.data, len);
+}
+
+static void spry_ast_write_value(sp_mem_t mem, const spry_ast_type_t* type, const void* value, sp_da(c8)* out);
+
+static void spry_ast_write_fields(sp_mem_t mem, const spry_ast_object_t* obj, const void* value, sp_da(c8)* out, bool* first) {
+  sp_for(i, obj->count) {
+    const spry_ast_field_t* field = &obj->fields[i];
+    if (!spry_ast_field_present(field, value)) continue;
+    const void* slot = (const u8*)value + field->offset;
+    if (field->is_ptr) slot = *(void* const*)slot;
+    if (!*first) sp_da_push(*out, ',');
+    *first = false;
+    spry_json_push_str(out, sp_cstr_as_str(field->key));
+    sp_da_push(*out, ':');
+    spry_ast_write_value(mem, field->type, slot, out);
+  }
+}
+
+static void spry_ast_write_value(sp_mem_t mem, const spry_ast_type_t* type, const void* value, sp_da(c8)* out) {
+  switch (type->kind) {
+    case SPRY_AST_BOOL: {
+      spry_json_push(out, *(const bool*)value ? sp_str_lit("true") : sp_str_lit("false"));
+      return;
+    }
+    case SPRY_AST_NUMBER: {
+      switch (type->as.number.repr) {
+        case SPRY_NUM_S8:  spry_json_push(out, sp_fmt(mem, "{}", sp_fmt_int(*(const s8*)value)).value); return;
+        case SPRY_NUM_U8:  spry_json_push(out, sp_fmt(mem, "{}", sp_fmt_uint(*(const u8*)value)).value); return;
+        case SPRY_NUM_S16: spry_json_push(out, sp_fmt(mem, "{}", sp_fmt_int(*(const s16*)value)).value); return;
+        case SPRY_NUM_U16: spry_json_push(out, sp_fmt(mem, "{}", sp_fmt_uint(*(const u16*)value)).value); return;
+        case SPRY_NUM_S32: spry_json_push(out, sp_fmt(mem, "{}", sp_fmt_int(*(const s32*)value)).value); return;
+        case SPRY_NUM_U32: spry_json_push(out, sp_fmt(mem, "{}", sp_fmt_uint(*(const u32*)value)).value); return;
+        case SPRY_NUM_F32: spry_json_push(out, spry_float_str(mem, *(const f32*)value)); return;
+        case SPRY_NUM_F64: spry_json_push(out, spry_float_str(mem, *(const f64*)value)); return;
+      }
+      return;
+    }
+    case SPRY_AST_STR: {
+      spry_json_push_str(out, *(const sp_str_t*)value);
+      return;
+    }
+    case SPRY_AST_ENUM: {
+      spry_json_push_str(out, sp_cstr_as_str(type->as.enom.names[*(const s32*)value]));
+      return;
+    }
+    case SPRY_AST_ARRAY: {
+      const void* arr = *(void* const*)value;
+      sp_da_push(*out, '[');
+      sp_for(i, sp_da_size(arr)) {
+        if (i) sp_da_push(*out, ',');
+        spry_ast_write_value(mem, type->as.array.element, (const u8*)arr + i * type->as.array.stride, out);
+      }
+      sp_da_push(*out, ']');
+      return;
+    }
+    case SPRY_AST_VALUES: {
+      const spry_ast_values_t* values = &type->as.values;
+      const void* arr = *(void* const*)value;
+      sp_da_push(*out, '{');
+      sp_for(i, sp_da_size(arr)) {
+        const u8* slot = (const u8*)arr + i * values->stride;
+        if (i) sp_da_push(*out, ',');
+        spry_json_push_str(out, *(const sp_str_t*)(slot + values->key_offset));
+        sp_da_push(*out, ':');
+        spry_ast_write_value(mem, values->value, slot + values->value_offset, out);
+      }
+      sp_da_push(*out, '}');
+      return;
+    }
+    case SPRY_AST_OBJECT: {
+      sp_da_push(*out, '{');
+      bool first = true;
+      spry_ast_write_fields(mem, &type->as.object, value, out, &first);
+      sp_da_push(*out, '}');
+      return;
+    }
+    case SPRY_AST_UNION: {
+      const spry_ast_union_t* uni = &type->as.uni;
+      s32 tag = *(const s32*)((const u8*)value + uni->tag_offset);
+      const spry_ast_variant_t* variant = SP_NULLPTR;
+      sp_for(i, uni->count) {
+        if (uni->variants[i].value == tag) { variant = &uni->variants[i]; break; }
+      }
+      SP_ASSERT(variant);
+      sp_da_push(*out, '{');
+      spry_json_push_str(out, sp_cstr_as_str(uni->tag_key));
+      sp_da_push(*out, ':');
+      spry_json_push_str(out, sp_cstr_as_str(variant->tag));
+      bool first = false;
+      spry_ast_write_fields(mem, &variant->type->as.object, (const u8*)value + uni->payload_offset, out, &first);
+      sp_da_push(*out, '}');
+      return;
+    }
+  }
+}
+
+sp_str_t spry_ast_write(sp_mem_t mem, const spry_ast_type_t* type, const void* value) {
+  sp_da(c8) out = sp_da_new(mem, c8);
+  spry_ast_write_value(mem, type, value, &out);
+  return sp_str(out, (u32)sp_da_size(out));
+}
+
 sp_str_t spry_err_name(spry_err_t code) {
   switch (code) {
     case SPRY_OK:                             return sp_str_lit("ok");

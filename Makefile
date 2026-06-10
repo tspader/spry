@@ -21,4 +21,4 @@ fetch:
 	@cmake -P $(ROOT)/cmake/fetch.cmake
 
 clean:
-	rm -rf $(BUILD) $(ROOT)/compile_commands.json $(ROOT)/src/abi/*.gen.h $(ROOT)/src/abi/*.gen.ts $(ROOT)/src/abi/schema.ts
+	rm -rf $(BUILD) $(ROOT)/compile_commands.json $(ROOT)/src/abi/*.gen.h $(ROOT)/src/abi/*.gen.ts $(ROOT)/src/abi/schema.ts $(ROOT)/src/assets

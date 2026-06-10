@@ -12,6 +12,6 @@ typedef struct {
 } demo_ctx_t;
 
 bool        demo_db_seed(sqlite3* db);
-demo_ctx_t* demo_new(sp_mem_t mem, sqlite3* db);
+demo_ctx_t* demo_new(sp_mem_t mem, sqlite3* db, spry_endpoints_t endpoints);
 
 #endif

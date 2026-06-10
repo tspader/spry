@@ -17,5 +17,5 @@ export const SPRY_JUSTIFY_BETWEEN = 3;
 export const SPRY_INTERACTION_KIND_INVOKE = 0;
 export const SPRY_EVENT_CLICK = 0;
 export const SPRY_EVENT_SUBMIT = 1;
-export const SPRY_ONRESPONSE_PATCH = 0;
-export const SPRY_ONRESPONSE_IGNORE = 1;
+export const SPRY_ONRESPONSE_IGNORE = 0;
+export const SPRY_ONRESPONSE_PATCH = 1;

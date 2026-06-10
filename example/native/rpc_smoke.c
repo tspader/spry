@@ -1,4 +1,3 @@
-#define SP_IMPLEMENTATION
 #include "sp.h"
 #include <sqlite3.h>
 #include "spry/rpc.h"
@@ -30,8 +29,25 @@ static void expect_contains(spry_reply_t reply, const c8* needle) {
   }
 }
 
-s32 main(void) {
+s32 main(s32 argc, c8** argv) {
+  if (argc < 2) {
+    sp_log("usage: rpc-smoke <endpoints.json>");
+    return 1;
+  }
+
   sp_mem_t mem = sp_mem_os_new();
+
+  sp_str_t endpoints_json;
+  if (sp_io_read_file(mem, sp_cstr_as_str(argv[1]), &endpoints_json) != SP_OK) {
+    sp_log("rpc-smoke: cannot read endpoints {}", sp_fmt_cstr(argv[1]));
+    return 1;
+  }
+  spry_endpoints_t endpoints;
+  sp_str_t error = sp_zero_s(sp_str_t);
+  if (!spry_endpoints_parse(mem, endpoints_json, &endpoints, &error)) {
+    sp_log("rpc-smoke: invalid endpoints: {}", sp_fmt_str(error));
+    return 1;
+  }
 
   sqlite3* db;
   if (sqlite3_open(":memory:", &db) != SQLITE_OK) {
@@ -42,7 +58,8 @@ s32 main(void) {
     sp_log("rpc-smoke: seed failed: {}", sp_fmt_cstr(sqlite3_errmsg(db)));
     return 1;
   }
-  demo_ctx_t* demo = demo_new(mem, db);
+  demo_ctx_t* demo = demo_new(mem, db, endpoints);
+  if (!spry_rpc_check(demo->rpc)) return 1;
 
   spry_reply_t tables = run(demo, "tables", "{}", DELIVER_OK);
   expect_contains(tables, "albums");
@@ -53,7 +70,11 @@ s32 main(void) {
   expect_contains(grid, "edit_cell");
 
   run(demo, "open_table", "{\"table\":\"nope\"}", DELIVER_FAULT);
-  run(demo, "open_table", "{}", DELIVER_FAULT);
+  spry_reply_t invalid = run(demo, "open_table", "{}", DELIVER_FAULT);
+  expect_contains(invalid, "\"issues\"");
+  expect_contains(invalid, "\"missing\"");
+  spry_reply_t unknown = run(demo, "open_table", "{\"table\":\"albums\",\"bogus\":1}", DELIVER_FAULT);
+  expect_contains(unknown, "\"unknown\"");
   run(demo, "bogus", "{}", DELIVER_FAULT);
 
   spry_reply_t editor = run(demo, "edit_cell", "{\"table\":\"albums\",\"rowid\":1,\"column\":\"title\"}", DELIVER_OK);

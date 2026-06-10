@@ -5,9 +5,7 @@
 #include "spry/abi.h"
 
 #include "yyjson.h"
-#include "abi/ui.gen.h"
-#include "abi/fault.gen.h"
-#include "abi/endpoints.gen.h"
+#include "spry/core.h"
 
 static sp_mem_t g_mem;
 static bool g_mem_init = false;
@@ -107,32 +105,6 @@ static rt_token_t* rt_token_at(u32 token) {
   return node;
 }
 
-static const spry_endpoint_t* rt_endpoint_find(sp_str_t name) {
-  sp_da_for(g_endpoints, i) {
-    if (sp_str_equal(g_endpoints[i].key, name)) return &g_endpoints[i].value;
-  }
-  return SP_NULLPTR;
-}
-
-typedef struct {
-  const spry_endpoint_arg_t* arg;
-  bool required;
-} rt_arg_ref_t;
-
-static rt_arg_ref_t rt_endpoint_arg_find(const spry_endpoint_t* ep, sp_str_t name) {
-  sp_da_for(ep->args.properties, i) {
-    if (sp_str_equal(ep->args.properties[i].key, name)) {
-      return (rt_arg_ref_t){ .arg = &ep->args.properties[i].value, .required = true };
-    }
-  }
-  sp_da_for(ep->args.optionalProperties, i) {
-    if (sp_str_equal(ep->args.optionalProperties[i].key, name)) {
-      return (rt_arg_ref_t){ .arg = &ep->args.optionalProperties[i].value, .required = false };
-    }
-  }
-  return sp_zero_s(rt_arg_ref_t);
-}
-
 static sp_str_t rt_invoke_body_find(const spry_invoke_t* invoke, sp_str_t name, bool* found) {
   sp_da_for(invoke->body, i) {
     if (sp_str_equal(invoke->body[i].key, name)) {
@@ -144,114 +116,13 @@ static sp_str_t rt_invoke_body_find(const spry_invoke_t* invoke, sp_str_t name, 
   return sp_zero_s(sp_str_t);
 }
 
-static void rt_out_raw(sp_da(c8)* out, sp_str_t value) {
-  sp_for(i, value.len) sp_da_push(*out, value.data[i]);
-}
-
-static void rt_out_json_str(sp_da(c8)* out, sp_str_t value) {
-  static const c8 hex[] = "0123456789abcdef";
-  sp_da_push(*out, '"');
-  sp_for(i, value.len) {
-    c8 c = value.data[i];
-    if (c == '"' || c == '\\') {
-      sp_da_push(*out, '\\');
-      sp_da_push(*out, c);
-    } else if ((u8)c < 0x20) {
-      rt_out_raw(out, sp_str_lit("\\u00"));
-      sp_da_push(*out, hex[((u8)c >> 4) & 0xf]);
-      sp_da_push(*out, hex[(u8)c & 0xf]);
-    } else {
-      sp_da_push(*out, c);
-    }
-  }
-  sp_da_push(*out, '"');
-}
-
-static bool rt_number_valid(sp_str_t value) {
-  u32 i = 0;
-  if (i < value.len && value.data[i] == '-') i++;
-  if (i >= value.len) return false;
-  if (value.data[i] == '0') {
-    i++;
-  } else if (value.data[i] >= '1' && value.data[i] <= '9') {
-    while (i < value.len && value.data[i] >= '0' && value.data[i] <= '9') i++;
-  } else {
-    return false;
-  }
-  if (i < value.len && value.data[i] == '.') {
-    i++;
-    if (i >= value.len || value.data[i] < '0' || value.data[i] > '9') return false;
-    while (i < value.len && value.data[i] >= '0' && value.data[i] <= '9') i++;
-  }
-  if (i < value.len && (value.data[i] == 'e' || value.data[i] == 'E')) {
-    i++;
-    if (i < value.len && (value.data[i] == '+' || value.data[i] == '-')) i++;
-    if (i >= value.len || value.data[i] < '0' || value.data[i] > '9') return false;
-    while (i < value.len && value.data[i] >= '0' && value.data[i] <= '9') i++;
-  }
-  return i == value.len;
-}
-
-static bool rt_integer_valid(sp_str_t value, bool sign) {
-  u32 i = 0;
-  if (i < value.len && value.data[i] == '-') {
-    if (!sign) return false;
-    i++;
-  }
-  if (i >= value.len) return false;
-  if (value.data[i] == '0') return i + 1 == value.len;
-  if (value.data[i] < '1' || value.data[i] > '9') return false;
-  while (i < value.len && value.data[i] >= '0' && value.data[i] <= '9') i++;
-  return i == value.len;
-}
-
-static bool rt_value_coercible(spry_type_t type, sp_str_t value) {
-  switch (type) {
-    case SPRY_TYPE_STRING: return true;
-    case SPRY_TYPE_BOOLEAN: return sp_str_equal_cstr(value, "true") || sp_str_equal_cstr(value, "false");
-    case SPRY_TYPE_INT8:
-    case SPRY_TYPE_INT16:
-    case SPRY_TYPE_INT32: return rt_integer_valid(value, true);
-    case SPRY_TYPE_UINT8:
-    case SPRY_TYPE_UINT16:
-    case SPRY_TYPE_UINT32: return rt_integer_valid(value, false);
-    case SPRY_TYPE_FLOAT32:
-    case SPRY_TYPE_FLOAT64: return rt_number_valid(value);
-  }
-  return false;
-}
-
 static void rt_out_value(sp_da(c8)* out, spry_type_t type, sp_str_t value) {
-  if (type == SPRY_TYPE_STRING) rt_out_json_str(out, value);
-  else rt_out_raw(out, value);
-}
-
-static sp_str_t rt_fault_json(const spry_fault_t* fault) {
-  sp_da(c8) out = sp_da_new(rt_mem(), c8);
-  rt_out_raw(&out, sp_str_lit("{\"code\":"));
-  rt_out_json_str(&out, sp_cstr_as_str(spry_code_names[fault->code]));
-  if (!sp_str_empty(fault->message)) {
-    rt_out_raw(&out, sp_str_lit(",\"message\":"));
-    rt_out_json_str(&out, fault->message);
-  }
-  if (sp_da_size(fault->issues)) {
-    rt_out_raw(&out, sp_str_lit(",\"issues\":["));
-    sp_da_for(fault->issues, i) {
-      if (i) sp_da_push(out, ',');
-      rt_out_raw(&out, sp_str_lit("{\"path\":"));
-      rt_out_json_str(&out, fault->issues[i].path);
-      rt_out_raw(&out, sp_str_lit(",\"code\":"));
-      rt_out_json_str(&out, fault->issues[i].code);
-      sp_da_push(out, '}');
-    }
-    sp_da_push(out, ']');
-  }
-  sp_da_push(out, '}');
-  return sp_str(out, (u32)sp_da_size(out));
+  if (type == SPRY_TYPE_STRING) spry_json_push_str(out, value);
+  else spry_json_push(out, value);
 }
 
 static void rt_apply_fault(u32 token, const spry_fault_t* fault) {
-  sp_str_t json = rt_fault_json(fault);
+  sp_str_t json = spry_fault_write(rt_mem(), fault);
   host_report(token, json.data, json.len);
 }
 
@@ -262,30 +133,8 @@ static void rt_apply_fault_code(u32 token, spry_code_t code, sp_str_t message) {
   rt_apply_fault(token, &fault);
 }
 
-static sp_str_t node_id(const spry_node_t* node) {
-  switch (node->kind) {
-    case SPRY_NODE_KIND_BOX:    return node->as.box.id;
-    case SPRY_NODE_KIND_TEXT:   return node->as.text.id;
-    case SPRY_NODE_KIND_LINK:   return node->as.link.id;
-    case SPRY_NODE_KIND_INPUT:  return node->as.input.id;
-    case SPRY_NODE_KIND_BUTTON: return node->as.button.id;
-  }
-  return sp_zero_s(sp_str_t);
-}
-
-static const spry_interaction_t* node_on(const spry_node_t* node) {
-  switch (node->kind) {
-    case SPRY_NODE_KIND_BOX:    return node->as.box.on;
-    case SPRY_NODE_KIND_BUTTON: return node->as.button.on;
-    case SPRY_NODE_KIND_TEXT:   return SP_NULLPTR;
-    case SPRY_NODE_KIND_LINK:   return SP_NULLPTR;
-    case SPRY_NODE_KIND_INPUT:  return SP_NULLPTR;
-  }
-  return SP_NULLPTR;
-}
-
 static bool rt_validate_invoke(const spry_invoke_t* invoke) {
-  const spry_endpoint_t* ep = rt_endpoint_find(invoke->handler);
+  const spry_endpoint_t* ep = spry_endpoint_find(g_endpoints, invoke->handler);
   if (!ep) {
     rt_fatal(sp_fmt(rt_mem(), "unknown endpoint '{}'", sp_fmt_str(invoke->handler)).value);
     return false;
@@ -296,12 +145,12 @@ static bool rt_validate_invoke(const spry_invoke_t* invoke) {
   }
   sp_da_for(invoke->body, i) {
     const spry_invoke_body_entry_t* entry = &invoke->body[i];
-    rt_arg_ref_t ref = rt_endpoint_arg_find(ep, entry->key);
-    if (!ref.arg) {
+    const spry_endpoint_arg_t* arg = spry_endpoint_arg_find(ep, entry->key);
+    if (!arg) {
       rt_fatal(sp_fmt(rt_mem(), "endpoint '{}': unknown body argument '{}'", sp_fmt_str(invoke->handler), sp_fmt_str(entry->key)).value);
       return false;
     }
-    if (!rt_value_coercible(ref.arg->type, entry->value)) {
+    if (!spry_coercible(arg->type, entry->value)) {
       rt_fatal(sp_fmt(rt_mem(), "endpoint '{}': body argument '{}' is not coercible: '{}'", sp_fmt_str(invoke->handler), sp_fmt_str(entry->key), sp_fmt_str(entry->value)).value);
       return false;
     }
@@ -310,7 +159,7 @@ static bool rt_validate_invoke(const spry_invoke_t* invoke) {
 }
 
 static bool rt_validate_node(const spry_node_t* node) {
-  const spry_interaction_t* on = node_on(node);
+  const spry_interaction_t* on = spry_node_on(node);
   if (on) {
     switch (on->kind) {
       case SPRY_INTERACTION_KIND_INVOKE:
@@ -329,10 +178,10 @@ static bool rt_validate_node(const spry_node_t* node) {
 static u32 render_node(const spry_node_t* node) {
   u32 handle = host_create_element((u32)node->kind);
 
-  sp_str_t id = node_id(node);
+  sp_str_t id = spry_node_id(node);
   if (!sp_str_empty(id)) rt_register_id(id, handle);
 
-  const spry_interaction_t* on = node_on(node);
+  const spry_interaction_t* on = spry_node_on(node);
   if (on) {
     switch (on->kind) {
       case SPRY_INTERACTION_KIND_INVOKE: {
@@ -419,27 +268,22 @@ static void rt_body_arg(rt_body_builder_t* b, const spry_invoke_t* invoke, sp_st
     value = rt_field_value(field);
   }
 
-  if (!rt_value_coercible(type, value)) {
+  if (!spry_coercible(type, value)) {
     rt_body_issue(b, name, sp_str_lit("type"));
     return;
   }
 
   if (!b->first) sp_da_push(b->body, ',');
   b->first = false;
-  rt_out_json_str(&b->body, name);
+  spry_json_push_str(&b->body, name);
   sp_da_push(b->body, ':');
   rt_out_value(&b->body, type, value);
 }
 
-static bool rt_parse_with(const spry_ast_type_t* type, yyjson_val* val, void* out, spry_ctx_t* ctx) {
-  spry_ctx_init(ctx, rt_mem());
-  return spry_ast_parse(type, val, ctx, out) == SPRY_OK;
-}
-
 static bool rt_parse_node(yyjson_val* val, spry_node_t* out) {
-  spry_ctx_t ctx;
-  if (!rt_parse_with(&spry_node_type, val, out, &ctx)) {
-    rt_fatal(spry_issue_str(rt_mem(), &ctx.issues[0]));
+  sp_str_t error = sp_zero_s(sp_str_t);
+  if (!spry_node_parse_val(rt_mem(), val, out, &error)) {
+    rt_fatal(error);
     return false;
   }
   return true;
@@ -458,9 +302,9 @@ s32 rt_endpoints(const c8* ptr, u32 len) {
   if (!doc) { rt_fatal(sp_str_lit("endpoints parse error")); return 1; }
 
   spry_endpoints_t endpoints = SP_NULLPTR;
-  spry_ctx_t ctx;
-  if (!rt_parse_with(&spry_endpoints_type, yyjson_doc_get_root(doc), &endpoints, &ctx)) {
-    rt_fatal(spry_issue_str(rt_mem(), &ctx.issues[0]));
+  sp_str_t error = sp_zero_s(sp_str_t);
+  if (!spry_endpoints_parse_val(rt_mem(), yyjson_doc_get_root(doc), &endpoints, &error)) {
+    rt_fatal(error);
     return 2;
   }
 
@@ -496,7 +340,7 @@ void rt_dispatch(u32 token) {
   if (it->pending) return;
 
   const spry_invoke_t* invoke = it->invoke;
-  const spry_endpoint_t* ep = rt_endpoint_find(invoke->handler);
+  const spry_endpoint_t* ep = spry_endpoint_find(g_endpoints, invoke->handler);
   if (!ep) {
     rt_fatal(sp_fmt(rt_mem(), "unknown endpoint '{}'", sp_fmt_str(invoke->handler)).value);
     return;
@@ -535,14 +379,7 @@ void rt_dispatch(u32 token) {
 static bool rt_parse_fault(const c8* ptr, u32 len, spry_fault_t* out) {
   yyjson_doc* doc = rt_parse(ptr, len);
   if (!doc) return false;
-  spry_ctx_t ctx;
-  return rt_parse_with(&spry_fault_type, yyjson_doc_get_root(doc), out, &ctx);
-}
-
-static spry_code_t rt_intermediary_code(u32 status) {
-  if (status == 408) return SPRY_CODE_TIMEOUT;
-  if (status == 429 || status == 502 || status == 503 || status == 504) return SPRY_CODE_UNAVAILABLE;
-  return SPRY_CODE_FAILED;
+  return spry_fault_parse_val(rt_mem(), yyjson_doc_get_root(doc), out);
 }
 
 static void rt_deliver_ok(rt_token_t* it, u32 token, const c8* ptr, u32 len) {
@@ -596,7 +433,7 @@ void rt_deliver(u32 token, u32 outcome, const c8* ptr, u32 len) {
       rt_apply_fault(token, &fault);
     } else {
       sp_str_t msg = sp_fmt(rt_mem(), "intermediary HTTP {}", sp_fmt_uint(outcome)).value;
-      rt_apply_fault_code(token, rt_intermediary_code(outcome), msg);
+      rt_apply_fault_code(token, spry_intermediary_code(outcome), msg);
     }
     return;
   }

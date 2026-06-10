@@ -47,7 +47,7 @@
           "properties": {
             "event": { "enum": ["click", "submit"] },
             "handler": { "type": "string" },
-            "onResponse": { "enum": ["patch", "ignore"] }
+            "onResponse": { "enum": ["ignore", "patch"] }
           },
           "optionalProperties": {
             "target": { "type": "string" },

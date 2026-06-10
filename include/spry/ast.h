@@ -141,6 +141,10 @@ void spry_ctx_init(spry_ctx_t* ctx, sp_mem_t mem);
 
 spry_err_t spry_ast_parse(const spry_ast_type_t* type, yyjson_val* val, spry_ctx_t* ctx, void* out);
 
+void spry_json_push(sp_da(c8)* out, sp_str_t raw);
+void spry_json_push_str(sp_da(c8)* out, sp_str_t value);
+sp_str_t spry_ast_write(sp_mem_t mem, const spry_ast_type_t* type, const void* value);
+
 sp_str_t spry_err_name(spry_err_t code);
 sp_str_t spry_issue_str(sp_mem_t mem, const spry_issue_t* issue);
 

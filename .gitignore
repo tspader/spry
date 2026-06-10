@@ -7,4 +7,6 @@ compile_commands.json
 /.llm
 /.build
 /.playwright-cli
+/.playwright-mcp
 /example/db
+/src/assets

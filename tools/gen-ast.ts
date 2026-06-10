@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const PFX = "spry";
 
 const SCHEMAS = [
-  { file: "ui.jtd.json", base: "ui" },
+  { file: "ui.jtd.json", base: "ui", builders: { node: "node", interaction: "interaction" } },
   { file: "fault.jtd.json", base: "fault" },
   { file: "endpoints.jtd.json", base: "endpoints" },
 ];
@@ -25,7 +25,9 @@ const numTypes: Record<string, { cType: string; repr: string }> = {
   float64: { cType: "f64", repr: "SPRY_NUM_F64" },
 };
 
-function generate(file: string, base: string) {
+type BuilderCfg = { node: string; interaction: string };
+
+function generate(file: string, base: string, builders?: BuilderCfg) {
   const inPath = new URL(`../src/abi/${file}`, import.meta.url);
   const outPath = new URL(`../src/abi/${base}.gen.h`, import.meta.url);
   const enumsHeaderPath = new URL(`../src/abi/${base}.enums.gen.h`, import.meta.url);
@@ -315,6 +317,64 @@ function generate(file: string, base: string) {
   writeFileSync(enumsHeaderPath, enumsHeader);
   writeFileSync(enumsTsPath, enumsTs);
   console.log(`gen-ast: ${structDefs.length} structs, ${enumTypedefs.length} enums -> src/abi/${base}.gen.h`);
+
+  if (builders) emitBuilders(base, defs, builders);
 }
 
-for (const s of SCHEMAS) generate(s.file, s.base);
+function emitBuilders(base: string, defs: Record<string, Schema>, cfg: BuilderCfg) {
+  const node = defs[cfg.node];
+  const interaction = defs[cfg.interaction];
+  if (!node?.discriminator || !interaction?.discriminator) {
+    throw new Error("gen-ast: builders config must name union definitions");
+  }
+
+  const guard = base.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+  const fns: string[] = [];
+
+  for (const [tag, variant] of Object.entries<Schema>(node.mapping)) {
+    const props = variant.properties?.props ?? variant.optionalProperties?.props;
+    if (!props) throw new Error(`gen-ast: builder variant '${tag}' has no props`);
+    const propsType = props.ref ? cType(props.ref) : cType(`${tag}_props`);
+    fns.push(
+      `static inline u32 ${cName(`ui_${tag}`)}(spry_ui_t* ui, ${propsType} props) {\n` +
+        `  ${cType(cfg.node)} node = sp_zero_s(${cType(cfg.node)});\n` +
+        `  node.kind = ${enumConst(`${cfg.node}_kind`, tag)};\n` +
+        `  node.as.${tag}.props = props;\n` +
+        `  return spry_ui_push(ui, node);\n` +
+        `}`,
+    );
+  }
+
+  for (const tag of Object.keys(interaction.mapping)) {
+    fns.push(
+      `static inline void ${cName(`ui_${tag}`)}(spry_ui_t* ui, u32 node, ${cType(tag)} ${tag}) {\n` +
+        `  ${cType(cfg.interaction)} on = sp_zero_s(${cType(cfg.interaction)});\n` +
+        `  on.kind = ${enumConst(`${cfg.interaction}_kind`, tag)};\n` +
+        `  on.as.${tag} = ${tag};\n` +
+        `  spry_ui_set_on(ui, node, on);\n` +
+        `}`,
+    );
+  }
+
+  const out = [
+    `#ifndef SPRY_${guard}_BUILDERS_GEN_H`,
+    `#define SPRY_${guard}_BUILDERS_GEN_H`,
+    "",
+    `#include "abi/${base}.gen.h"`,
+    "",
+    "typedef struct spry_ui spry_ui_t;",
+    "",
+    `u32 spry_ui_push(spry_ui_t* ui, ${cType(cfg.node)} node);`,
+    `void spry_ui_set_on(spry_ui_t* ui, u32 node, ${cType(cfg.interaction)} on);`,
+    "",
+    fns.join("\n\n"),
+    "",
+    "#endif",
+    "",
+  ].join("\n");
+
+  writeFileSync(new URL(`../src/abi/${base}.builders.gen.h`, import.meta.url), out);
+  console.log(`gen-ast: ${fns.length} builders -> src/abi/${base}.builders.gen.h`);
+}
+
+for (const s of SCHEMAS) generate(s.file, s.base, s.builders);

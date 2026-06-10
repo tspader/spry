@@ -162,7 +162,7 @@ static const spry_ast_type_t spry_box_props_type = { .kind = SPRY_AST_OBJECT, .a
 static const c8* const spry_event_names[] = { "click", "submit" };
 static const spry_ast_type_t spry_event_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_event_names, .count = 2 } };
 
-static const c8* const spry_onResponse_names[] = { "patch", "ignore" };
+static const c8* const spry_onResponse_names[] = { "ignore", "patch" };
 static const spry_ast_type_t spry_onResponse_type = { .kind = SPRY_AST_ENUM, .as.enom = { .names = spry_onResponse_names, .count = 2 } };
 
 static const spry_ast_type_t spry_invoke_body_type = { .kind = SPRY_AST_VALUES, .as.values = { .value = &spry_str_type, .stride = sizeof(spry_invoke_body_entry_t), .key_offset = offsetof(spry_invoke_body_entry_t, key), .value_offset = offsetof(spry_invoke_body_entry_t, value) } };

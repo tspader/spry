@@ -12,8 +12,5 @@
     "./schema": "./abi/schema.ts",
     "./ui": "./ui/ui.ts",
     "./server": "./server/server.ts"
-  },
-  "dependencies": {
-    "zod": "^4.4.3"
   }
 }

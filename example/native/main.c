@@ -1,65 +1,33 @@
-#include <gtk/gtk.h>
 #include <sqlite3.h>
 #include "sp.h"
-#include "spry/host.h"
-#include "spry/backend/gtk.h"
-#include "spry/rpc.h"
+#include "spry/core.h"
+#include "spry/gtk.h"
 #include "handlers.h"
-
-typedef struct {
-  sp_mem_t mem;
-  sp_str_t wasm_path;
-  sp_str_t tree;
-  sp_str_t endpoints;
-  demo_ctx_t* demo;
-  wasm_host_t* host;
-  backend_t backend;
-} app_ctx_t;
-
-static void on_activate(GtkApplication* app, gpointer user_data) {
-  app_ctx_t* ctx = user_data;
-
-  GtkWidget* window = gtk_application_window_new(app);
-  gtk_window_set_title(GTK_WINDOW(window), "spry sqlite browser — gtk");
-  gtk_window_set_default_size(GTK_WINDOW(window), 900, 700);
-
-  ctx->host = wasm_host_new(ctx->mem, ctx->wasm_path);
-  if (!ctx->host) {
-    sp_log("native: failed to create wasm host");
-    return;
-  }
-
-  ctx->backend = gtk_backend_make(ctx->mem, GTK_WINDOW(window), wasm_host_iface(ctx->host), spry_rpc_resolver, ctx->demo->rpc);
-  wasm_host_set_backend(ctx->host, &ctx->backend);
-
-  s32 erc = wasm_host_endpoints(ctx->host, ctx->endpoints);
-  if (erc != 0) {
-    sp_log("native: endpoints returned {}", sp_fmt_int(erc));
-    return;
-  }
-
-  s32 rc = wasm_host_render(ctx->host, ctx->tree);
-  if (rc != 0) sp_log("native: render returned {}", sp_fmt_int(rc));
-
-  gtk_window_present(GTK_WINDOW(window));
-}
 
 s32 main(s32 argc, c8** argv) {
   if (argc < 4) {
-    sp_log("usage: app <ui.json> <endpoints.json> <db.sqlite> [runtime.wasm]");
+    sp_log("usage: app <ui.json> <endpoints.json> <db.sqlite>");
     return 1;
   }
 
   sp_mem_t mem = sp_mem_os_new();
-  app_ctx_t ctx = sp_zero_s(app_ctx_t);
-  ctx.mem = mem;
-  ctx.wasm_path = argc >= 5 ? sp_cstr_as_str(argv[4]) : sp_str_lit("runtime.wasm");
-  if (sp_io_read_file(mem, sp_cstr_as_str(argv[1]), &ctx.tree)) {
+
+  sp_str_t tree;
+  if (sp_io_read_file(mem, sp_cstr_as_str(argv[1]), &tree) != SP_OK) {
     sp_log("native: cannot read tree {}", sp_fmt_cstr(argv[1]));
     return 1;
   }
-  if (sp_io_read_file(mem, sp_cstr_as_str(argv[2]), &ctx.endpoints)) {
+
+  sp_str_t endpoints_json;
+  if (sp_io_read_file(mem, sp_cstr_as_str(argv[2]), &endpoints_json) != SP_OK) {
     sp_log("native: cannot read endpoints {}", sp_fmt_cstr(argv[2]));
+    return 1;
+  }
+
+  spry_endpoints_t endpoints;
+  sp_str_t error = sp_zero_s(sp_str_t);
+  if (!spry_endpoints_parse(mem, endpoints_json, &endpoints, &error)) {
+    sp_log("native: invalid endpoints: {}", sp_fmt_str(error));
     return 1;
   }
 
@@ -72,12 +40,14 @@ s32 main(s32 argc, c8** argv) {
     sp_log("native: seed failed: {}", sp_fmt_cstr(sqlite3_errmsg(db)));
     return 1;
   }
-  ctx.demo = demo_new(mem, db);
+  demo_ctx_t* demo = demo_new(mem, db, endpoints);
 
-  GtkApplication* app = gtk_application_new("dev.demo.hypermedia", G_APPLICATION_DEFAULT_FLAGS);
-  g_signal_connect(app, "activate", G_CALLBACK(on_activate), &ctx);
-  s32 status = g_application_run(G_APPLICATION(app), 1, argv);
-  g_object_unref(app);
+  s32 status = spry_gtk_run(&(spry_gtk_opts_t){
+    .title = sp_str_lit("spry sqlite browser — gtk"),
+    .tree = tree,
+    .endpoints = endpoints_json,
+    .rpc = demo->rpc,
+  });
   sqlite3_close(db);
   return status;
 }

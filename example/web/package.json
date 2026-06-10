@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "spry": "workspace:*",
-    "hono": "^4.11.5"
+    "spry": "workspace:*"
   }
 }
