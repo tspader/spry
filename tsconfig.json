@@ -14,7 +14,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "spry",
     "types": ["bun"]
   },
-  "include": ["src", "example", "tools"]
+  "include": ["src", "example", "tools", "test"]
 }

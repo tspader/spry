@@ -21,7 +21,7 @@ add_custom_command(
 add_custom_target(ast DEPENDS ${ROOT}/src/abi/ui.gen.h)
 
 add_custom_command(
-  OUTPUT ${ROOT}/src/abi/schema.ts ${ROOT}/src/abi/ui.gen.ts
+  OUTPUT ${ROOT}/src/abi/schema.ts ${ROOT}/src/abi/ui.gen.ts ${ROOT}/src/abi/jsx.gen.ts
   COMMAND bun run ${ROOT}/tools/gen-types.ts
   DEPENDS ${JTD_SCHEMAS} ${ROOT}/tools/gen-types.ts
   WORKING_DIRECTORY ${ROOT}

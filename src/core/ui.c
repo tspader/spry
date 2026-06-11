@@ -9,6 +9,9 @@ typedef struct {
 struct spry_ui {
   sp_mem_t mem;
   sp_da(spry_ui_entry_t) entries;
+  sp_da(u32) open;
+  u32 root;
+  bool has_root;
 };
 
 spry_ui_t* spry_ui_new(sp_mem_t mem) {
@@ -16,6 +19,7 @@ spry_ui_t* spry_ui_new(sp_mem_t mem) {
   *ui = sp_zero_s(spry_ui_t);
   ui->mem = mem;
   ui->entries = sp_da_new(mem, spry_ui_entry_t);
+  ui->open = sp_da_new(mem, u32);
   return ui;
 }
 
@@ -24,23 +28,12 @@ static spry_node_t* spry_ui_node_at(spry_ui_t* ui, u32 node) {
   return &ui->entries[node].node;
 }
 
-u32 spry_ui_push(spry_ui_t* ui, spry_node_t node) {
+static u32 spry_ui_push(spry_ui_t* ui, spry_node_t node) {
   spry_ui_entry_t entry = sp_zero_s(spry_ui_entry_t);
   entry.node = node;
   entry.children = sp_da_new(ui->mem, u32);
   sp_da_push(ui->entries, entry);
   return (u32)(sp_da_size(ui->entries) - 1);
-}
-
-void spry_ui_id(spry_ui_t* ui, u32 node, sp_str_t id) {
-  spry_node_t* n = spry_ui_node_at(ui, node);
-  switch (n->kind) {
-    case SPRY_NODE_KIND_BOX:    n->as.box.id = id;    return;
-    case SPRY_NODE_KIND_TEXT:   n->as.text.id = id;   return;
-    case SPRY_NODE_KIND_LINK:   n->as.link.id = id;   return;
-    case SPRY_NODE_KIND_INPUT:  n->as.input.id = id;  return;
-    case SPRY_NODE_KIND_BUTTON: n->as.button.id = id; return;
-  }
 }
 
 void spry_ui_set_on(spry_ui_t* ui, u32 node, spry_interaction_t on) {
@@ -78,6 +71,43 @@ void spry_ui_append(spry_ui_t* ui, u32 parent, u32 child) {
   sp_da_push(ui->entries[parent].children, child);
 }
 
+u32 spry_ui_enter(spry_ui_t* ui, spry_node_t node) {
+  u32 child = spry_ui_push(ui, node);
+  if (sp_da_size(ui->open)) {
+    spry_ui_append(ui, *sp_da_back(ui->open), child);
+  } else {
+    SP_ASSERT(!ui->has_root);
+    ui->root = child;
+    ui->has_root = true;
+  }
+  sp_da_push(ui->open, child);
+  return child;
+}
+
+void spry_ui_leave(spry_ui_t* ui) {
+  SP_ASSERT(sp_da_size(ui->open));
+  sp_da_pop(ui->open);
+}
+
+u32 spry_ui_current(spry_ui_t* ui) {
+  SP_ASSERT(sp_da_size(ui->open));
+  return *sp_da_back(ui->open);
+}
+
+u32 spry_ui_root(spry_ui_t* ui) {
+  SP_ASSERT(ui->has_root);
+  SP_ASSERT(sp_da_size(ui->open) == 0);
+  return ui->root;
+}
+
+sp_str_t spry_ui_fmt(spry_ui_t* ui, const c8* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  sp_str_t out = sp_fmt_mem_v(ui->mem, sp_cstr_as_str(fmt), args).value;
+  va_end(args);
+  return out;
+}
+
 static spry_node_t spry_ui_materialize(spry_ui_t* ui, u32 ref) {
   spry_node_t node = ui->entries[ref].node;
   if (node.kind == SPRY_NODE_KIND_BOX && sp_da_size(ui->entries[ref].children)) {
@@ -92,6 +122,7 @@ static spry_node_t spry_ui_materialize(spry_ui_t* ui, u32 ref) {
 }
 
 sp_str_t spry_ui_write(spry_ui_t* ui, u32 root) {
+  SP_ASSERT(sp_da_size(ui->open) == 0);
   spry_node_t node = spry_ui_materialize(ui, root);
   return spry_ast_write(ui->mem, &spry_node_type, &node);
 }

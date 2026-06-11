@@ -42,23 +42,20 @@ static spry_reply_t ep_tables(void* ctx) {
   }
 
   spry_ui_t* ui = spry_ui_new(app->mem);
-  u32 root = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_COLUMN, .gap = 6 });
-  spry_ui_append(ui, root, spry_ui_text(ui, (spry_text_props_t){ .text = sp_str_lit("tables") }));
-
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    sp_str_t name = column_value(app->mem, stmt, 0);
-    u32 btn = spry_ui_button(ui, (spry_button_props_t){ .text = name });
-    spry_ui_invoke(ui, btn, (spry_invoke_t){
-      .handler = sp_str_lit("open_table"),
-      .onResponse = SPRY_ONRESPONSE_PATCH,
-      .target = sp_str_lit("grid"),
-    });
-    spry_ui_body_arg(ui, btn, sp_str_lit("table"), name);
-    spry_ui_append(ui, root, btn);
+  SPRY_UI(ui) {
+    SPRY_COLUMN(.gap = 6) {
+      SPRY_TEXT("tables");
+      while (sqlite3_step(stmt) == SQLITE_ROW) {
+        sp_str_t name = column_value(app->mem, stmt, 0);
+        SPRY_BUTTON(name, .on = SPRY_PATCH("open_table", "grid")) {
+          SPRY_ARG("table", name);
+        }
+      }
+    }
   }
   sqlite3_finalize(stmt);
 
-  return spry_ok_ui(app->rpc, ui, root);
+  return spry_ok_ui(app->rpc, ui);
 }
 
 static spry_reply_t grid_reply(demo_ctx_t* app, sp_str_t table) {
@@ -72,40 +69,35 @@ static spry_reply_t grid_reply(demo_ctx_t* app, sp_str_t table) {
   }
 
   spry_ui_t* ui = spry_ui_new(app->mem);
-  u32 root = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_COLUMN, .gap = 4 });
+  SPRY_UI(ui) {
+    SPRY_COLUMN(.gap = 4) {
+      SPRY_TEXTF("{} (first {} rows; click a cell to edit)", sp_fmt_str(table), sp_fmt_int(ROW_LIMIT));
 
-  sp_str_t title = sp_fmt(app->mem, "{} (first {} rows; click a cell to edit)", sp_fmt_str(table), sp_fmt_int(ROW_LIMIT)).value;
-  spry_ui_append(ui, root, spry_ui_text(ui, (spry_text_props_t){ .text = title }));
+      s32 ncols = sqlite3_column_count(stmt);
+      SPRY_ROW(.gap = 16) {
+        sp_for_range(col, 1, ncols) {
+          SPRY_TEXT(sp_str_copy(app->mem, sp_cstr_as_str(sqlite3_column_name(stmt, (s32)col))));
+        }
+      }
 
-  s32 ncols = sqlite3_column_count(stmt);
-  u32 header = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_ROW, .gap = 16 });
-  sp_for_range(col, 1, ncols) {
-    sp_str_t name = sp_str_copy(app->mem, sp_cstr_as_str(sqlite3_column_name(stmt, (s32)col)));
-    spry_ui_append(ui, header, spry_ui_text(ui, (spry_text_props_t){ .text = name }));
-  }
-  spry_ui_append(ui, root, header);
-
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    sp_str_t rowid = column_value(app->mem, stmt, 0);
-    u32 data_row = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_ROW, .gap = 16 });
-    sp_for_range(col, 1, ncols) {
-      sp_str_t name = sp_str_copy(app->mem, sp_cstr_as_str(sqlite3_column_name(stmt, (s32)col)));
-      u32 cell = spry_ui_button(ui, (spry_button_props_t){ .text = column_value(app->mem, stmt, (s32)col) });
-      spry_ui_invoke(ui, cell, (spry_invoke_t){
-        .handler = sp_str_lit("edit_cell"),
-        .onResponse = SPRY_ONRESPONSE_PATCH,
-        .target = sp_str_lit("editor"),
-      });
-      spry_ui_body_arg(ui, cell, sp_str_lit("table"), table);
-      spry_ui_body_arg(ui, cell, sp_str_lit("rowid"), rowid);
-      spry_ui_body_arg(ui, cell, sp_str_lit("column"), name);
-      spry_ui_append(ui, data_row, cell);
+      while (sqlite3_step(stmt) == SQLITE_ROW) {
+        sp_str_t rowid = column_value(app->mem, stmt, 0);
+        SPRY_ROW(.gap = 16) {
+          sp_for_range(col, 1, ncols) {
+            sp_str_t name = sp_str_copy(app->mem, sp_cstr_as_str(sqlite3_column_name(stmt, (s32)col)));
+            SPRY_BUTTON(column_value(app->mem, stmt, (s32)col), .on = SPRY_PATCH("edit_cell", "editor")) {
+              SPRY_ARG("table", table);
+              SPRY_ARG("rowid", rowid);
+              SPRY_ARG("column", name);
+            }
+          }
+        }
+      }
     }
-    spry_ui_append(ui, root, data_row);
   }
   sqlite3_finalize(stmt);
 
-  return spry_ok_ui(app->rpc, ui, root);
+  return spry_ok_ui(app->rpc, ui);
 }
 
 static spry_reply_t ep_open_table(void* ctx, const demo_open_table_args_t* args) {
@@ -138,27 +130,20 @@ static spry_reply_t ep_edit_cell(void* ctx, const demo_edit_cell_args_t* args) {
   sqlite3_finalize(stmt);
 
   spry_ui_t* ui = spry_ui_new(app->mem);
-  u32 root = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_COLUMN, .gap = 8 });
-
-  sp_str_t heading = sp_fmt(app->mem, "editing {}[{}].{}", sp_fmt_str(table), sp_fmt_int(rowid), sp_fmt_str(col)).value;
-  spry_ui_append(ui, root, spry_ui_text(ui, (spry_text_props_t){ .text = heading }));
-
-  u32 form = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_ROW, .gap = 8, .align = SPRY_ALIGN_CENTER });
-  spry_ui_append(ui, form, spry_ui_input(ui, (spry_input_props_t){ .name = sp_str_lit("value"), .value = current }));
-
-  u32 save = spry_ui_button(ui, (spry_button_props_t){ .text = sp_str_lit("Save") });
-  spry_ui_invoke(ui, save, (spry_invoke_t){
-    .handler = sp_str_lit("save_cell"),
-    .onResponse = SPRY_ONRESPONSE_PATCH,
-    .target = sp_str_lit("grid"),
-  });
-  spry_ui_body_arg(ui, save, sp_str_lit("table"), table);
-  spry_ui_body_arg(ui, save, sp_str_lit("rowid"), sp_fmt(app->mem, "{}", sp_fmt_int(rowid)).value);
-  spry_ui_body_arg(ui, save, sp_str_lit("column"), col);
-  spry_ui_append(ui, form, save);
-
-  spry_ui_append(ui, root, form);
-  return spry_ok_ui(app->rpc, ui, root);
+  SPRY_UI(ui) {
+    SPRY_COLUMN(.gap = 8) {
+      SPRY_TEXTF("editing {}[{}].{}", sp_fmt_str(table), sp_fmt_int(rowid), sp_fmt_str(col));
+      SPRY_ROW(.gap = 8, .align = SPRY_ALIGN_CENTER) {
+        SPRY_INPUT(.name = sp_str_lit("value"), .value = current);
+        SPRY_BUTTON("Save", .on = SPRY_PATCH("save_cell", "grid")) {
+          SPRY_ARG("table", table);
+          SPRY_ARG("rowid", sp_fmt(app->mem, "{}", sp_fmt_int(rowid)).value);
+          SPRY_ARG("column", col);
+        }
+      }
+    }
+  }
+  return spry_ok_ui(app->rpc, ui);
 }
 
 static spry_reply_t ep_save_cell(void* ctx, const demo_save_cell_args_t* args) {
@@ -193,45 +178,49 @@ static spry_reply_t ep_exec(void* ctx, const demo_exec_args_t* args) {
   sp_str_t sql = args->sql;
 
   spry_ui_t* ui = spry_ui_new(app->mem);
-  u32 root = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_COLUMN, .gap = 4 });
 
   sqlite3_stmt* stmt;
   if (sqlite3_prepare_v2(app->db, sql.data, (s32)sql.len, &stmt, SP_NULLPTR) != SQLITE_OK) {
-    sp_str_t message = sp_fmt(app->mem, "SQL error: {}", sp_fmt_cstr(sqlite3_errmsg(app->db))).value;
-    spry_ui_append(ui, root, spry_ui_text(ui, (spry_text_props_t){ .text = message }));
-    return spry_ok_ui(app->rpc, ui, root);
-  }
-
-  s32 ncols = sqlite3_column_count(stmt);
-  if (ncols > 0) {
-    u32 header = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_ROW, .gap = 16 });
-    sp_for(col, ncols) {
-      sp_str_t name = sp_str_copy(app->mem, sp_cstr_as_str(sqlite3_column_name(stmt, (s32)col)));
-      spry_ui_append(ui, header, spry_ui_text(ui, (spry_text_props_t){ .text = name }));
+    SPRY_UI(ui) {
+      SPRY_COLUMN(.gap = 4) {
+        SPRY_TEXTF("SQL error: {}", sp_fmt_cstr(sqlite3_errmsg(app->db)));
+      }
     }
-    spry_ui_append(ui, root, header);
+    return spry_ok_ui(app->rpc, ui);
   }
 
-  s32 rows = 0;
-  s32 rc;
-  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && rows < ROW_LIMIT) {
-    u32 data_row = spry_ui_box(ui, (spry_box_props_t){ .direction = SPRY_DIRECTION_ROW, .gap = 16 });
-    sp_for(col, ncols) {
-      spry_ui_append(ui, data_row, spry_ui_text(ui, (spry_text_props_t){ .text = column_value(app->mem, stmt, (s32)col) }));
+  s32 rc = SQLITE_DONE;
+  SPRY_UI(ui) {
+    SPRY_COLUMN(.gap = 4) {
+      s32 ncols = sqlite3_column_count(stmt);
+      if (ncols > 0) {
+        SPRY_ROW(.gap = 16) {
+          sp_for(col, ncols) {
+            SPRY_TEXT(sp_str_copy(app->mem, sp_cstr_as_str(sqlite3_column_name(stmt, (s32)col))));
+          }
+        }
+      }
+
+      s32 rows = 0;
+      while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && rows < ROW_LIMIT) {
+        SPRY_ROW(.gap = 16) {
+          sp_for(col, ncols) {
+            SPRY_TEXT(column_value(app->mem, stmt, (s32)col));
+          }
+        }
+        rows += 1;
+      }
+
+      if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
+        SPRY_TEXTF("SQL error: {}", sp_fmt_cstr(sqlite3_errmsg(app->db)));
+      } else if (rows == 0) {
+        SPRY_TEXT("(no rows)");
+      }
     }
-    spry_ui_append(ui, root, data_row);
-    rows += 1;
-  }
-
-  if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
-    sp_str_t message = sp_fmt(app->mem, "SQL error: {}", sp_fmt_cstr(sqlite3_errmsg(app->db))).value;
-    spry_ui_append(ui, root, spry_ui_text(ui, (spry_text_props_t){ .text = message }));
-  } else if (rows == 0) {
-    spry_ui_append(ui, root, spry_ui_text(ui, (spry_text_props_t){ .text = sp_str_lit("(no rows)") }));
   }
   sqlite3_finalize(stmt);
 
-  return spry_ok_ui(app->rpc, ui, root);
+  return spry_ok_ui(app->rpc, ui);
 }
 
 static const c8* SEED_SQL =

@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { NODE, INTERACTION, SUGAR, CONTENT, AUTO_TEXT, INVOKE_SUGAR } from "./ui-config";
 
 const PFX = "spry";
 
 const SCHEMAS = [
-  { file: "ui.jtd.json", base: "ui", builders: { node: "node", interaction: "interaction" } },
+  { file: "ui.jtd.json", base: "ui", builders: { node: NODE, interaction: INTERACTION } },
   { file: "fault.jtd.json", base: "fault" },
   { file: "endpoints.jtd.json", base: "endpoints" },
 ];
@@ -309,29 +310,115 @@ function emitBuilders(base: string, defs: Record<string, Schema>, cfg: BuilderCf
 
   const guard = base.toUpperCase().replace(/[^A-Z0-9]/g, "_");
   const fns: string[] = [];
+  const decls: string[] = [];
+  const macros: string[] = [];
 
-  for (const [tag, variant] of Object.entries<Schema>(node.mapping)) {
+  function declFieldType(key: string, sub: Schema): string {
+    if (sub.type === "string") return "sp_str_t";
+    if (sub.type === "boolean") return "bool";
+    if (sub.type && numTypes[sub.type]) return numTypes[sub.type]!.cType;
+    if (sub.enum) return cType(key);
+    throw new Error(`gen-ast: unsupported decl field '${key}'`);
+  }
+
+  function variantProps(tag: string, variant: Schema): Schema {
     const props = variant.properties?.props ?? variant.optionalProperties?.props;
     if (!props) throw new Error(`gen-ast: builder variant '${tag}' has no props`);
-    const propsType = props.ref ? cType(props.ref) : cType(`${tag}_props`);
-    fns.push(
-      `static inline u32 ${cName(`ui_${tag}`)}(spry_ui_t* ui, ${propsType} props) {\n` +
-        `  ${cType(cfg.node)} node = sp_zero_s(${cType(cfg.node)});\n` +
-        `  node.kind = ${enumConst(`${cfg.node}_kind`, tag)};\n` +
-        `  node.as.${tag}.props = props;\n` +
-        `  return spry_ui_push(ui, node);\n` +
-        `}`,
+    return props;
+  }
+
+  function propFieldEntries(props: Schema): Array<[string, Schema]> {
+    return [...Object.entries<Schema>(props.properties ?? {}), ...Object.entries<Schema>(props.optionalProperties ?? {})];
+  }
+
+  for (const [tag, variant] of Object.entries<Schema>(node.mapping)) {
+    const props = variantProps(tag, variant);
+    const propFields = propFieldEntries(props);
+    const hasOn = "on" in (variant.properties ?? {}) || "on" in (variant.optionalProperties ?? {});
+    for (const [key] of propFields) {
+      if (key === "id" || key === "on") throw new Error(`gen-ast: prop '${key}' of '${tag}' collides with a node field`);
+    }
+
+    const declName = cType(`${tag}_decl`);
+    const fields = [`  const void* spry_ui__designated;`];
+    fields.push(...propFields.map(([key, sub]) => `  ${declFieldType(key, sub)} ${key};`));
+    fields.push(`  sp_str_t id;`);
+    if (hasOn) fields.push(`  const ${cType(cfg.interaction)}* on;`);
+    decls.push(`typedef struct ${cName(`${tag}_decl`)} {\n${fields.join("\n")}\n} ${declName};`);
+
+    const open = [`static inline u32 ${cName(`ui_open_${tag}`)}(spry_ui_t* ui, ${declName} decl) {`];
+    open.push(`  ${cType(cfg.node)} node = sp_zero_s(${cType(cfg.node)});`);
+    open.push(`  node.kind = ${enumConst(`${cfg.node}_kind`, tag)};`);
+    open.push(`  node.as.${tag}.id = decl.id;`);
+    for (const [key] of propFields) open.push(`  node.as.${tag}.props.${key} = decl.${key};`);
+    open.push(`  u32 opened = spry_ui_enter(ui, node);`);
+    if (hasOn) open.push(`  if (decl.on) spry_ui_set_on(ui, opened, *decl.on);`);
+    open.push(`  return opened;`);
+    open.push(`}`);
+    fns.push(open.join("\n"));
+
+    const content = CONTENT[tag];
+    if (content) {
+      const sub = (props.properties ?? {})[content] ?? (props.optionalProperties ?? {})[content];
+      if (sub?.type !== "string") throw new Error(`gen-ast: content prop '${content}' of '${tag}' is not a string`);
+      macros.push(
+        `#define SPRY_${tag.toUpperCase()}(spry__content, ...) SPRY_UI_ELEMENT(${cName(`ui_open_${tag}`)}(spry_ui__ctx, (${declName}){ .${content} = spry_ui_str(spry__content), __VA_ARGS__ }))`,
+      );
+    } else {
+      macros.push(
+        `#define SPRY_${tag.toUpperCase()}(...) SPRY_UI_ELEMENT(${cName(`ui_open_${tag}`)}(spry_ui__ctx, (${declName}){ __VA_ARGS__ }))`,
+      );
+    }
+  }
+
+  for (const [name, sugar] of Object.entries(SUGAR)) {
+    const variant = node.mapping[sugar.of];
+    if (!variant) throw new Error(`gen-ast: sugar '${name}' names unknown variant '${sugar.of}'`);
+    const props = variantProps(sugar.of, variant);
+    const preset = Object.entries(sugar.preset).map(([key, value]) => {
+      const sub = (props.properties ?? {})[key] ?? (props.optionalProperties ?? {})[key];
+      if (!sub?.enum?.includes(value)) throw new Error(`gen-ast: sugar '${name}' preset '${key}=${value}' is not an enum value`);
+      return `.${key} = ${enumConst(key, value)}`;
+    });
+    macros.push(
+      `#define SPRY_${name.toUpperCase()}(...) SPRY_UI_ELEMENT(${cName(`ui_open_${sugar.of}`)}(spry_ui__ctx, (${cType(`${sugar.of}_decl`)}){ ${preset.join(", ")}, __VA_ARGS__ }))`,
+    );
+  }
+
+  {
+    const variant = node.mapping[AUTO_TEXT.kind];
+    if (!variant) throw new Error(`gen-ast: autoText kind '${AUTO_TEXT.kind}' is not a variant`);
+    macros.push(
+      `#define SPRY_${AUTO_TEXT.kind.toUpperCase()}F(...) SPRY_UI_ELEMENT(${cName(`ui_open_${AUTO_TEXT.kind}`)}(spry_ui__ctx, (${cType(`${AUTO_TEXT.kind}_decl`)}){ .${AUTO_TEXT.prop} = spry_ui_fmt(spry_ui__ctx, __VA_ARGS__) }))`,
     );
   }
 
   for (const tag of Object.keys(interaction.mapping)) {
-    fns.push(
-      `static inline void ${cName(`ui_${tag}`)}(spry_ui_t* ui, u32 node, ${cType(tag)} ${tag}) {\n` +
-        `  ${cType(cfg.interaction)} on = sp_zero_s(${cType(cfg.interaction)});\n` +
-        `  on.kind = ${enumConst(`${cfg.interaction}_kind`, tag)};\n` +
-        `  on.as.${tag} = ${tag};\n` +
-        `  spry_ui_set_on(ui, node, on);\n` +
-        `}`,
+    macros.push(
+      `#define SPRY_${tag.toUpperCase()}(...) (&(const ${cType(cfg.interaction)}){ .kind = ${enumConst(`${cfg.interaction}_kind`, tag)}, .as.${tag} = { __VA_ARGS__ } })`,
+    );
+  }
+
+  for (const [name, sugar] of Object.entries(INVOKE_SUGAR)) {
+    const variant = interaction.mapping[sugar.of];
+    if (!variant) throw new Error(`gen-ast: invoke sugar '${name}' names unknown variant '${sugar.of}'`);
+    const fields = { ...variant.properties, ...variant.optionalProperties } as Record<string, Schema>;
+    const params: string[] = [];
+    const inits: string[] = [];
+    for (const arg of sugar.args) {
+      const sub = fields[arg];
+      if (!sub) throw new Error(`gen-ast: invoke sugar '${name}' arg '${arg}' is not a field of '${sugar.of}'`);
+      if (sub.type !== "string") continue;
+      params.push(`spry__${arg}`);
+      inits.push(`.${arg} = spry_ui_str(spry__${arg})`);
+    }
+    for (const [key, value] of Object.entries(sugar.preset)) {
+      const sub = fields[key];
+      if (!sub?.enum?.includes(value)) throw new Error(`gen-ast: invoke sugar '${name}' preset '${key}=${value}' is not an enum value`);
+      inits.push(`.${key} = ${enumConst(key, value)}`);
+    }
+    macros.push(
+      `#define SPRY_${name.toUpperCase()}(${params.join(", ")}) SPRY_${sugar.of.toUpperCase()}(${inits.join(", ")})`,
     );
   }
 
@@ -343,17 +430,21 @@ function emitBuilders(base: string, defs: Record<string, Schema>, cfg: BuilderCf
     "",
     "typedef struct spry_ui spry_ui_t;",
     "",
-    `u32 spry_ui_push(spry_ui_t* ui, ${cType(cfg.node)} node);`,
+    `u32 spry_ui_enter(spry_ui_t* ui, ${cType(cfg.node)} node);`,
     `void spry_ui_set_on(spry_ui_t* ui, u32 node, ${cType(cfg.interaction)} on);`,
     "",
+    decls.join("\n\n"),
+    "",
     fns.join("\n\n"),
+    "",
+    macros.join("\n\n"),
     "",
     "#endif",
     "",
   ].join("\n");
 
   writeFileSync(new URL(`../src/abi/${base}.builders.gen.h`, import.meta.url), out);
-  console.log(`gen-ast: ${fns.length} builders -> src/abi/${base}.builders.gen.h`);
+  console.log(`gen-ast: ${fns.length} builders, ${macros.length} macros -> src/abi/${base}.builders.gen.h`);
 }
 
 for (const s of SCHEMAS) generate(s.file, s.base, s.builders);

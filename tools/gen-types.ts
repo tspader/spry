@@ -1,7 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { NODE, INTERACTION, SUGAR, CONTENT, AUTO_TEXT, INVOKE_SUGAR } from "./ui-config";
 
 const SCHEMA_FILES = ["ui.jtd.json", "fault.jtd.json", "endpoints.jtd.json"];
-const BUILDERS = { schema: "ui.jtd.json", node: "node", interaction: "interaction" };
+const BUILDERS = { schema: "ui.jtd.json", node: NODE, interaction: INTERACTION };
+const LOOSE_VALUE = "string | number | boolean";
 
 type Schema = any;
 const defs: Record<string, Schema> = {};
@@ -122,6 +124,7 @@ console.log(`gen-types: ${enumTypes.length} enums, ${objectTypes.length} objects
 
 const builderTypes: string[] = [];
 const builderFns: string[] = [];
+const jsxKinds: Array<{ tag: string; optsName: string; sugarProp: string | null; hasChildren: boolean }> = [];
 
 const nodeDef = defs[BUILDERS.node];
 const nodeName = pascal(BUILDERS.node);
@@ -141,12 +144,14 @@ for (const [tag, variant] of Object.entries<Schema>(nodeDef.mapping)) {
   ];
   builderTypes.push(`export type ${optsName} = {\n${optLines.join("\n")}\n};`);
 
-  const requiredProps = propsFields.filter(([, , required]) => required);
-  const sugar =
-    requiredProps.length === 1 &&
-    resolve(tag, requiredProps[0]![0], requiredProps[0]![1]) === "string" &&
-    nodeFields.every(([, , required]) => !required);
+  const content = CONTENT[tag];
+  if (content !== undefined) {
+    const sub = propsFields.find(([key]) => key === content);
+    if (!sub || resolve(tag, content, sub[1]) !== "string") throw new Error(`gen-types: content prop '${content}' of '${tag}' is not a string prop`);
+  }
+  const sugar = content !== undefined;
   const allOptional = !sugar && [...nodeFields, ...propsFields].every(([, , required]) => !required);
+  jsxKinds.push({ tag, optsName, sugarProp: content ?? null, hasChildren });
 
   const nodeKeys = nodeFields.map(([key]) => key);
   const destructure = nodeKeys.length ? `const { ${nodeKeys.join(", ")}, ...props } = o;` : `const props = o;`;
@@ -159,7 +164,7 @@ for (const [tag, variant] of Object.entries<Schema>(nodeDef.mapping)) {
   const lines: string[] = [];
   lines.push(`export function ${tag}(${params}${childrenParam}): ${nodeName} {`);
   if (sugar) {
-    lines.push(`  const o = typeof opts === "string" ? { ${requiredProps[0]![0]}: opts } : opts;`);
+    lines.push(`  const o = typeof opts === "string" ? { ${content}: opts } : opts;`);
   } else {
     lines.push(`  const o = opts;`);
   }
@@ -176,15 +181,30 @@ for (const [tag, variant] of Object.entries<Schema>(nodeDef.mapping)) {
   builderFns.push(lines.join("\n"));
 }
 
+for (const [name, sugar] of Object.entries(SUGAR)) {
+  const of = jsxKinds.find((k) => k.tag === sugar.of);
+  if (!of) throw new Error(`gen-types: sugar '${name}' names unknown kind '${sugar.of}'`);
+  if (!of.hasChildren) throw new Error(`gen-types: sugar '${name}' kind '${sugar.of}' has no children`);
+  const presetKeys = Object.keys(sugar.preset).map((key) => `"${key}"`).join(" | ");
+  const preset = Object.entries(sugar.preset).map(([key, value]) => `${key}: "${value}"`).join(", ");
+  builderFns.push(
+    `export function ${name}(opts: Omit<${of.optsName}, ${presetKeys}> = {}, ...children: ${nodeName}[]): ${nodeName} {\n` +
+      `  return ${sugar.of}({ ...opts, ${preset} }, ...children);\n` +
+      `}`,
+  );
+}
+
 const interactionDef = defs[BUILDERS.interaction];
 const interactionName = pascal(BUILDERS.interaction);
 const interactionDisc = interactionDef.discriminator;
+
+const looseValues = (sub: Schema) => sub.values?.type === "string";
 
 for (const [tag, variant] of Object.entries<Schema>(interactionDef.mapping)) {
   const fields = fieldEntries(variant);
   const optsName = `${pascal(tag)}Opts`;
   const optLines = fields.map(([key, sub, required]) => {
-    const ts = resolve(tag, key, sub);
+    const ts = looseValues(sub) ? `Record<string, ${LOOSE_VALUE}>` : resolve(tag, key, sub);
     const defaulted = required && enumValues.has(ts);
     return `  ${key}${required && !defaulted ? "" : "?"}: ${ts};`;
   });
@@ -196,7 +216,11 @@ for (const [tag, variant] of Object.entries<Schema>(interactionDef.mapping)) {
   lines.push(`    ${interactionDisc}: "${tag}",`);
   for (const [key, sub, required] of fields) {
     const ts = resolve(tag, key, sub);
-    if (required && enumValues.has(ts)) {
+    if (looseValues(sub)) {
+      lines.push(
+        `    ...(opts.${key} !== undefined && { ${key}: Object.fromEntries(Object.entries(opts.${key}).map(([k, v]) => [k, String(v)])) }),`,
+      );
+    } else if (required && enumValues.has(ts)) {
       lines.push(`    ${key}: opts.${key} ?? "${enumValues.get(ts)![0]}",`);
     } else if (required) {
       lines.push(`    ${key}: opts.${key},`);
@@ -207,6 +231,35 @@ for (const [tag, variant] of Object.entries<Schema>(interactionDef.mapping)) {
   lines.push(`  };`);
   lines.push(`}`);
   builderFns.push(lines.join("\n"));
+}
+
+for (const [name, sugar] of Object.entries(INVOKE_SUGAR)) {
+  const variant = interactionDef.mapping[sugar.of];
+  if (!variant) throw new Error(`gen-types: invoke sugar '${name}' names unknown variant '${sugar.of}'`);
+  const fields = new Map(fieldEntries(variant).map(([key, sub, required]) => [key, { sub, required }]));
+  const params: string[] = [];
+  const passed: string[] = [];
+  for (const arg of sugar.args) {
+    const field = fields.get(arg);
+    if (!field) throw new Error(`gen-types: invoke sugar '${name}' arg '${arg}' is not a field of '${sugar.of}'`);
+    if (looseValues(field.sub)) {
+      params.push(`${arg}?: Record<string, ${LOOSE_VALUE}>`);
+      passed.push(`...(${arg} !== undefined && { ${arg} })`);
+    } else {
+      params.push(`${arg}: ${resolve(sugar.of, arg, field.sub)}`);
+      passed.push(arg);
+    }
+  }
+  for (const [key, value] of Object.entries(sugar.preset)) {
+    const field = fields.get(key);
+    if (!field?.sub.enum?.includes(value)) throw new Error(`gen-types: invoke sugar '${name}' preset '${key}=${value}' is not an enum value`);
+    passed.push(`${key}: "${value}"`);
+  }
+  builderFns.push(
+    `export function ${name}(${params.join(", ")}): ${interactionName} {\n` +
+      `  return ${sugar.of}({ ${passed.join(", ")} });\n` +
+      `}`,
+  );
 }
 
 const builderBody = [builderTypes.join("\n\n"), "", builderFns.join("\n\n")].join("\n");
@@ -223,3 +276,68 @@ const uiOut = [
 
 writeFileSync(new URL("../src/abi/ui.gen.ts", import.meta.url), uiOut);
 console.log(`gen-types: ${builderFns.length} builders -> src/abi/ui.gen.ts`);
+
+const autoTextKind = jsxKinds.find((k) => k.tag === AUTO_TEXT.kind);
+if (!autoTextKind || autoTextKind.sugarProp !== AUTO_TEXT.prop) throw new Error(`gen-types: autoText '${AUTO_TEXT.kind}.${AUTO_TEXT.prop}' is not a content prop`);
+
+const intrinsicRows: string[] = [];
+const tableRows: string[] = [];
+
+for (const k of jsxKinds) {
+  if (k.hasChildren) {
+    intrinsicRows.push(`  ${k.tag}: ${k.optsName} & { children?: JsxChild };`);
+  } else if (k.sugarProp) {
+    intrinsicRows.push(
+      `  ${k.tag}: (${k.optsName} & { children?: never }) | (Omit<${k.optsName}, "${k.sugarProp}"> & { children: JsxText });`,
+    );
+  } else {
+    intrinsicRows.push(`  ${k.tag}: ${k.optsName} & { children?: never };`);
+  }
+  const fields = [`kind: "${k.tag}"`, `container: ${k.hasChildren}`];
+  if (k.sugarProp) fields.push(`sugar: "${k.sugarProp}"`);
+  tableRows.push(`  ${k.tag}: { ${fields.join(", ")} },`);
+}
+
+for (const [name, sugar] of Object.entries(SUGAR)) {
+  const of = jsxKinds.find((k) => k.tag === sugar.of);
+  if (!of) throw new Error(`gen-types: sugar '${name}' names unknown kind '${sugar.of}'`);
+  const presetKeys = Object.keys(sugar.preset).map((key) => `"${key}"`).join(" | ");
+  const childrenType = of.hasChildren ? `{ children?: JsxChild }` : `{ children?: never }`;
+  intrinsicRows.push(`  ${name}: Omit<${of.optsName}, ${presetKeys}> & ${childrenType};`);
+  tableRows.push(
+    `  ${name}: { kind: "${sugar.of}", container: ${of.hasChildren}, preset: ${JSON.stringify(sugar.preset)} },`,
+  );
+}
+
+const jsxImports = jsxKinds.map((k) => k.optsName).sort();
+const jsxOut = [
+  `// Generated from src/abi/${BUILDERS.schema} by tools/gen-types.ts. Do not edit.`,
+  `import type { ${nodeName} } from "./schema";`,
+  `import type { ${jsxImports.join(", ")} } from "./ui.gen";`,
+  "",
+  `export type JsxChild = ${nodeName} | string | number | boolean | null | undefined | JsxChild[];`,
+  `export type JsxText = string | number | boolean | null | undefined | JsxText[];`,
+  "",
+  `export interface IntrinsicElements {`,
+  ...intrinsicRows,
+  `}`,
+  "",
+  `export type Intrinsic = {`,
+  `  kind: string;`,
+  `  container: boolean;`,
+  `  preset?: Record<string, unknown>;`,
+  `  sugar?: string;`,
+  `};`,
+  "",
+  `export const INTRINSICS: Record<string, Intrinsic> = {`,
+  ...tableRows,
+  `};`,
+  "",
+  `export function textNode(text: string): ${nodeName} {`,
+  `  return { kind: "${autoTextKind.tag}", props: { ${autoTextKind.sugarProp}: text } };`,
+  `}`,
+  "",
+].join("\n");
+
+writeFileSync(new URL("../src/abi/jsx.gen.ts", import.meta.url), jsxOut);
+console.log(`gen-types: ${jsxKinds.length + Object.keys(SUGAR).length} intrinsics -> src/abi/jsx.gen.ts`);

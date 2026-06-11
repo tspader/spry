@@ -74,6 +74,9 @@ export async function spryApp(opts: SpryAppOpts): Promise<{ fetch(req: Request):
     const args = JSON.parse(body) as Record<string, unknown>;
     try {
       const result = await opts.handlers[name]!(args);
+      if (Array.isArray(result) && result.some((n) => typeof n === "object" && n !== null && "kind" in n)) {
+        throw new Error("handler returned a fragment; return a single root node");
+      }
       if (typeof result === "object" && result !== null && "kind" in result) {
         const fragment = JSON.stringify(result);
         const error = service.fragment(fragment);

@@ -79,9 +79,9 @@ spry_reply_t spry_ok(sp_str_t body) {
   return (spry_reply_t){ .outcome = DELIVER_OK, .body = body };
 }
 
-spry_reply_t spry_ok_ui(spry_rpc_t* rpc, spry_ui_t* ui, u32 root) {
+spry_reply_t spry_ok_ui(spry_rpc_t* rpc, spry_ui_t* ui) {
   (void)rpc;
-  return spry_ok(spry_ui_write(ui, root));
+  return spry_ok(spry_ui_write(ui, spry_ui_root(ui)));
 }
 
 spry_reply_t spry_fault(spry_rpc_t* rpc, spry_code_t code, sp_str_t message) {

@@ -11,6 +11,8 @@
     "./ui-enums": "./abi/ui.enums.gen.ts",
     "./schema": "./abi/schema.ts",
     "./ui": "./ui/ui.ts",
-    "./server": "./server/server.ts"
+    "./server": "./server/server.ts",
+    "./jsx-runtime": "./jsx/jsx-runtime.ts",
+    "./jsx-dev-runtime": "./jsx/jsx-dev-runtime.ts"
   }
 }

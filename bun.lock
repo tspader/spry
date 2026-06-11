@@ -4,6 +4,9 @@
   "workspaces": {
     "": {
       "name": "demo",
+      "dependencies": {
+        "spry": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "^5",

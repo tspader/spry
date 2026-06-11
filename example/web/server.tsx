@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { spryApp, Fault } from "spry/server";
-import { button, column, input, invoke, row, text } from "spry/ui";
+import { invoke, patch } from "spry/ui";
 import type { Node } from "spry/schema";
 import type { Handlers } from "./endpoints.gen";
 import endpoints from "../ui/endpoints.json";
@@ -63,61 +63,80 @@ function cellText(value: unknown): string {
   return String(value);
 }
 
-function resultGrid(columns: string[], rows: Array<Record<string, unknown>>): Node {
-  if (rows.length === 0) return column({ gap: 4 }, text("(no rows)"));
-  return column(
-    { gap: 4 },
-    row({ gap: 16 }, ...columns.map((c) => text(c))),
-    ...rows.map((r) => row({ gap: 16 }, ...columns.map((c) => text(cellText(r[c]))))),
+function ResultGrid({ columns, rows }: { columns: string[]; rows: Array<Record<string, unknown>> }): Node {
+  if (rows.length === 0) {
+    return (
+      <column gap={4}>
+        <text>(no rows)</text>
+      </column>
+    );
+  }
+  return (
+    <column gap={4}>
+      <row gap={16}>
+        {columns.map((c) => (
+          <text>{c}</text>
+        ))}
+      </row>
+      {rows.map((r) => (
+        <row gap={16}>
+          {columns.map((c) => (
+            <text>{cellText(r[c])}</text>
+          ))}
+        </row>
+      ))}
+    </column>
   );
 }
 
-function tableGrid(table: string): Node {
+function TableGrid({ table }: { table: string }): Node {
   const columns = tableColumns(table);
   const rows = db
     .query(`select rowid as _spry_rowid, * from ${quoteIdent(table)} limit ${ROW_LIMIT}`)
     .all() as Array<Record<string, unknown>>;
 
-  return column(
-    { gap: 4 },
-    text(`${table} (first ${ROW_LIMIT} rows; click a cell to edit)`),
-    row({ gap: 16 }, ...columns.map((c) => text(c))),
-    ...rows.map((r) =>
-      row(
-        { gap: 16 },
-        ...columns.map((c) =>
-          button({
-            text: cellText(r[c]),
-            on: invoke({
-              handler: "edit_cell",
-              onResponse: "patch",
-              target: "editor",
-              body: { table, rowid: String(r["_spry_rowid"]), column: c },
-            }),
-          }),
-        ),
-      ),
-    ),
+  return (
+    <column gap={4}>
+      <text>
+        {table} (first {ROW_LIMIT} rows; click a cell to edit)
+      </text>
+      <row gap={16}>
+        {columns.map((c) => (
+          <text>{c}</text>
+        ))}
+      </row>
+      {rows.map((r) => (
+        <row gap={16}>
+          {columns.map((c) => (
+            <button
+              text={cellText(r[c])}
+              on={patch("edit_cell", "editor", { table, rowid: r["_spry_rowid"] as number, column: c })}
+            />
+          ))}
+        </row>
+      ))}
+    </column>
   );
 }
 
 const handlers: Handlers = {
   tables() {
-    return column(
-      { gap: 6 },
-      text("tables"),
-      ...tableNames().map((name) =>
-        button({
-          text: name,
-          on: invoke({ handler: "open_table", onResponse: "patch", target: "grid", body: { table: name } }),
-        }),
-      ),
+    return (
+      <column gap={6}>
+        <text>tables</text>
+        {tableNames().map((name) => (
+          <button
+            text={name}
+            on={patch("open_table", "grid", { table: name })}
+          />
+        ))}
+      </column>
     );
   },
 
   open_table(args) {
     requireTable(args.table);
-    return tableGrid(args.table);
+    return <TableGrid table={args.table} />;
   },
 
   edit_cell(args) {
@@ -130,22 +149,19 @@ const handlers: Handlers = {
       .get(rowid) as { value: unknown } | null;
     if (!current) throw new Fault("missing", `no row ${rowid} in '${table}'`);
 
-    return column(
-      { gap: 8 },
-      text(`editing ${table}[${rowid}].${col}`),
-      row(
-        { gap: 8, align: "center" },
-        input({ name: "value", value: cellText(current.value) }),
-        button({
-          text: "Save",
-          on: invoke({
-            handler: "save_cell",
-            onResponse: "patch",
-            target: "grid",
-            body: { table, rowid: String(rowid), column: col },
-          }),
-        }),
-      ),
+    return (
+      <column gap={8}>
+        <text>
+          editing {table}[{rowid}].{col}
+        </text>
+        <row gap={8} align="center">
+          <input name="value" value={cellText(current.value)} />
+          <button
+            text="Save"
+            on={patch("save_cell", "grid", { table, rowid, column: col })}
+          />
+        </row>
+      </column>
     );
   },
 
@@ -155,17 +171,21 @@ const handlers: Handlers = {
     if (!tableColumns(table).includes(col)) throw new Fault("missing", `no such column '${col}'`);
 
     db.run(`update ${quoteIdent(table)} set ${quoteIdent(col)} = ? where rowid = ?`, [value, rowid]);
-    return tableGrid(table);
+    return <TableGrid table={table} />;
   },
 
   exec(args) {
     try {
       const rows = db.query(args.sql).all() as Array<Record<string, unknown>>;
       const columns = rows.length ? Object.keys(rows[0]!) : [];
-      return resultGrid(columns, rows.slice(0, ROW_LIMIT));
+      return <ResultGrid columns={columns} rows={rows.slice(0, ROW_LIMIT)} />;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return column({ gap: 4 }, text(`SQL error: ${message}`));
+      return (
+        <column gap={4}>
+          <text>SQL error: {message}</text>
+        </column>
+      );
     }
   },
 };

@@ -40,7 +40,7 @@ export type InvokeOpts = {
   handler: string;
   onResponse?: OnResponse;
   target?: string;
-  body?: Record<string, string>;
+  body?: Record<string, string | number | boolean>;
 };
 
 export function box(opts: BoxOpts = {}, ...children: Node[]): Node {
@@ -75,8 +75,8 @@ export function link(opts: LinkOpts): Node {
   };
 }
 
-export function input(opts: string | InputOpts): Node {
-  const o = typeof opts === "string" ? { name: opts } : opts;
+export function input(opts: InputOpts): Node {
+  const o = opts;
   const { id, ...props } = o;
   return {
     kind: "input",
@@ -96,6 +96,14 @@ export function button(opts: string | ButtonOpts): Node {
   };
 }
 
+export function row(opts: Omit<BoxOpts, "direction"> = {}, ...children: Node[]): Node {
+  return box({ ...opts, direction: "row" }, ...children);
+}
+
+export function column(opts: Omit<BoxOpts, "direction"> = {}, ...children: Node[]): Node {
+  return box({ ...opts, direction: "column" }, ...children);
+}
+
 export function invoke(opts: InvokeOpts): Interaction {
   return {
     action: "invoke",
@@ -103,6 +111,10 @@ export function invoke(opts: InvokeOpts): Interaction {
     handler: opts.handler,
     onResponse: opts.onResponse ?? "ignore",
     ...(opts.target !== undefined && { target: opts.target }),
-    ...(opts.body !== undefined && { body: opts.body }),
+    ...(opts.body !== undefined && { body: Object.fromEntries(Object.entries(opts.body).map(([k, v]) => [k, String(v)])) }),
   };
+}
+
+export function patch(handler: string, target: string, body?: Record<string, string | number | boolean>): Interaction {
+  return invoke({ handler, target, ...(body !== undefined && { body }), onResponse: "patch" });
 }
