@@ -59,11 +59,11 @@ static spry_reply_t ep_tables(void* ctx) {
 }
 
 static spry_reply_t grid_reply(demo_ctx_t* app, sp_str_t table) {
-  sp_mem_arena_marker_t scratch = sp_mem_begin_scratch_for(app->mem);
-  sp_str_t sql = sp_fmt(scratch.mem, "select rowid as _spry_rowid, * from {} limit {}", sp_fmt_str(quote_ident(scratch.mem, table)), sp_fmt_int(ROW_LIMIT)).value;
+  sp_mem_arena_marker_t s = sp_mem_begin_scratch_for(app->mem);
+  sp_str_t sql = sp_fmt(s.mem, "select rowid as _spry_rowid, * from {} limit {}", sp_fmt_str(quote_ident(s.mem, table)), sp_fmt_int(ROW_LIMIT)).value;
   sqlite3_stmt* stmt;
   s32 prc = sqlite3_prepare_v2(app->db, sql.data, (s32)sql.len, &stmt, SP_NULLPTR);
-  sp_mem_end_scratch(scratch);
+  sp_mem_end_scratch(s);
   if (prc != SQLITE_OK) {
     return spry_fault(app->rpc, SPRY_CODE_FAILED, sp_cstr_as_str(sqlite3_errmsg(app->db)));
   }
@@ -108,23 +108,25 @@ static spry_reply_t ep_open_table(void* ctx, const demo_open_table_args_t* args)
 
 static spry_reply_t ep_edit_cell(void* ctx, const demo_edit_cell_args_t* args) {
   demo_ctx_t* app = ctx;
-  sp_str_t table = args->table;
-  s32 rowid = args->rowid;
-  sp_str_t col = args->column;
-  if (!table_exists(app, table)) return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no such table '{}'", sp_fmt_str(table)).value);
 
-  sp_mem_arena_marker_t scratch = sp_mem_begin_scratch_for(app->mem);
-  sp_str_t sql = sp_fmt(scratch.mem, "select {} from {} where rowid = ?", sp_fmt_str(quote_ident(scratch.mem, col)), sp_fmt_str(quote_ident(scratch.mem, table))).value;
+  if (!table_exists(app, args->table)) {
+    return spry_fault_fmt(app->mem, app->rpc, SPRY_CODE_MISSING, "no such table {.quote}", sp_fmt_str(args->table));
+  }
+
+  sp_mem_arena_marker_t s = sp_mem_begin_scratch_for(app->mem);
+  sp_str_t sql = sp_fmt(s.mem, "select {.quote} from {.quote} where rowid = ?", sp_fmt_str(args->column), sp_fmt_str(args->table)).value;
   sqlite3_stmt* stmt;
   s32 prc = sqlite3_prepare_v2(app->db, sql.data, (s32)sql.len, &stmt, SP_NULLPTR);
-  sp_mem_end_scratch(scratch);
+  sp_mem_end_scratch(s);
+
   if (prc != SQLITE_OK) {
     return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_cstr_as_str(sqlite3_errmsg(app->db)));
   }
-  sqlite3_bind_int64(stmt, 1, rowid);
+
+  sqlite3_bind_int64(stmt, 1, args->rowid);
   if (sqlite3_step(stmt) != SQLITE_ROW) {
     sqlite3_finalize(stmt);
-    return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no row {} in '{}'", sp_fmt_int(rowid), sp_fmt_str(table)).value);
+    return spry_fault(app->rpc, SPRY_CODE_MISSING, sp_fmt(app->mem, "no row {} in '{}'", sp_fmt_int(args->rowid), sp_fmt_str(args->table)).value);
   }
   sp_str_t current = column_value(app->mem, stmt, 0);
   sqlite3_finalize(stmt);
@@ -132,13 +134,13 @@ static spry_reply_t ep_edit_cell(void* ctx, const demo_edit_cell_args_t* args) {
   spry_ui_t* ui = spry_ui_new(app->mem);
   SPRY_UI(ui) {
     SPRY_COLUMN(.gap = 8) {
-      SPRY_TEXTF("editing {}[{}].{}", sp_fmt_str(table), sp_fmt_int(rowid), sp_fmt_str(col));
+      SPRY_TEXTF("editing {}[{}].{}", sp_fmt_str(args->table), sp_fmt_int(args->rowid), sp_fmt_str(args->column));
       SPRY_ROW(.gap = 8, .align = SPRY_ALIGN_CENTER) {
         SPRY_INPUT(.name = sp_str_lit("value"), .value = current);
         SPRY_BUTTON("Save", .on = SPRY_PATCH("save_cell", "grid")) {
-          SPRY_ARG("table", table);
-          SPRY_ARG("rowid", sp_fmt(app->mem, "{}", sp_fmt_int(rowid)).value);
-          SPRY_ARG("column", col);
+          SPRY_ARG("table", args->table);
+          SPRY_ARG("rowid", sp_fmt(app->mem, "{}", sp_fmt_int(args->rowid)).value);
+          SPRY_ARG("column", args->column);
         }
       }
     }

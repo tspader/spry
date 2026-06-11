@@ -90,6 +90,13 @@ spry_reply_t spry_fault(spry_rpc_t* rpc, spry_code_t code, sp_str_t message) {
   fault.message = message;
   return (spry_reply_t){ .outcome = DELIVER_FAULT, .body = spry_fault_write(rpc->mem, &fault) };
 }
+spry_reply_t spry_fault_fmt(sp_mem_t mem, spry_rpc_t* rpc, spry_code_t code, const c8* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  sp_str_r result = sp_fmt_mem_v(mem, sp_cstr_as_str(fmt), args);
+  va_end(args);
+  return spry_fault(rpc, code, result.value);
+}
 
 static spry_reply_t spry_fault_invalid(spry_rpc_t* rpc, spry_issues_t issues) {
   spry_fault_t fault = sp_zero_s(spry_fault_t);

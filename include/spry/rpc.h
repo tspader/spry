@@ -44,5 +44,6 @@ bool spry_args_bool(const spry_args_t* args, const c8* name, bool* out);
 spry_reply_t spry_ok(sp_str_t body);
 spry_reply_t spry_ok_ui(spry_rpc_t* rpc, spry_ui_t* ui);
 spry_reply_t spry_fault(spry_rpc_t* rpc, spry_code_t code, sp_str_t message);
+spry_reply_t spry_fault_fmt(sp_mem_t mem, spry_rpc_t* rpc, spry_code_t code, const c8* fmt, ...);
 
 #endif
