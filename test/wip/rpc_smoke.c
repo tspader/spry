@@ -1,12 +1,14 @@
 #include "sp.h"
-#include <sqlite3.h>
 #include "spry/rpc.h"
-#include "handlers.h"
+#include "app/app.h"
+#include "db/db.h"
 
 static u32 g_failures;
+static sp_mem_t g_mem;
 
 static spry_reply_t run(demo_ctx_t* demo, const c8* name, const c8* body, deliver_outcome_t want) {
-  spry_reply_t reply = spry_rpc_dispatch(demo->rpc, sp_cstr_as_str(name), sp_cstr_as_str(body));
+  spry_reply_t reply = spry_rpc_dispatch(demo->rpc, spry_str(name), spry_str(body));
+  reply.body = sp_str_copy(g_mem, reply.body);
   bool ok = reply.outcome == want;
   if (!ok) g_failures += 1;
   sp_log("{} {} {} -> outcome={} body={}", sp_fmt_cstr(ok ? "ok  " : "FAIL"), sp_fmt_cstr(name), sp_fmt_cstr(body), sp_fmt_uint(reply.outcome), sp_fmt_str(reply.body));
@@ -36,9 +38,10 @@ s32 main(s32 argc, c8** argv) {
   }
 
   sp_mem_t mem = sp_mem_os_new();
+  g_mem = mem;
 
   sp_str_t endpoints_json;
-  if (sp_io_read_file(mem, sp_cstr_as_str(argv[1]), &endpoints_json) != SP_OK) {
+  if (sp_io_read_file(mem, spry_str(argv[1]), &endpoints_json) != SP_OK) {
     sp_log("rpc-smoke: cannot read endpoints {}", sp_fmt_cstr(argv[1]));
     return 1;
   }
@@ -50,12 +53,8 @@ s32 main(s32 argc, c8** argv) {
   }
 
   sqlite3* db;
-  if (sqlite3_open(":memory:", &db) != SQLITE_OK) {
-    sp_log("rpc-smoke: cannot open :memory:");
-    return 1;
-  }
-  if (!demo_db_seed(db)) {
-    sp_log("rpc-smoke: seed failed: {}", sp_fmt_cstr(sqlite3_errmsg(db)));
+  if (demo_db_open(":memory:", &db)) {
+    sp_log("rpc-smoke: cannot open :memory:: {}", sp_fmt_str(demo_db_error(db)));
     return 1;
   }
   demo_ctx_t* demo = demo_new(mem, db, endpoints);
@@ -89,6 +88,12 @@ s32 main(s32 argc, c8** argv) {
 
   spry_reply_t broken = run(demo, "exec", "{\"sql\":\"selekt\"}", DELIVER_OK);
   expect_contains(broken, "SQL error");
+
+  run(demo, "exec", "{\"sql\":\"insert into albums (title, artist_id) values ('Null Year', 1)\"}", DELIVER_OK);
+  spry_reply_t nulls = run(demo, "open_table", "{\"table\":\"albums\"}", DELIVER_OK);
+  expect_contains(nulls, "∅");
+  spry_reply_t null_editor = run(demo, "edit_cell", "{\"table\":\"albums\",\"rowid\":8,\"column\":\"year\"}", DELIVER_OK);
+  expect_contains(null_editor, "\"props\":{\"name\":\"value\"}");
 
   sqlite3_close(db);
 

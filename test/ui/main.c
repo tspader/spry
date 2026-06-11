@@ -9,16 +9,16 @@ static sp_str_t ui_build_conformance(sp_mem_t mem) {
   SPRY_UI(ui) {
     SPRY_COLUMN(.gap = 4, .id = sp_str_lit("root")) {
       SPRY_TEXT("spry");
-      SPRY_LINK(.text = sp_str_lit("docs"), .href = sp_str_lit("https://example.com"));
+      SPRY_LINK("docs", .href = sp_str_lit("https://example.com"));
       SPRY_ROW(.gap = 16, .align = SPRY_ALIGN_CENTER) {
-        SPRY_INPUT(.name = sp_str_lit("q"), .placeholder = sp_str_lit("search"));
+        SPRY_INPUT("q", .placeholder = sp_str_lit("search"));
         SPRY_BUTTON("Go", .on = SPRY_INVOKE(.event = SPRY_EVENT_SUBMIT, .handler = sp_str_lit("search"), .onResponse = SPRY_ONRESPONSE_PATCH, .target = sp_str_lit("results"))) {
-          SPRY_ARG("q", sp_str_lit("x"));
-          SPRY_ARG("page", sp_str_lit("1"));
+          SPRY_ARG("q", "x");
+          SPRY_ARG("page", 1);
         }
       }
       SPRY_BUTTON("Refresh", .on = SPRY_PATCH("refresh", "root")) {
-        SPRY_ARG("count", sp_str_lit("3"));
+        SPRY_ARG("count", 3);
       }
       SPRY_BOX();
       SPRY_TEXTF("ready {} go", sp_fmt_int(2));

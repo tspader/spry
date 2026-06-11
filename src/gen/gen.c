@@ -40,6 +40,7 @@ typedef struct {
   sp_str_t name;
   sp_str_t sym;
   sp_str_t pascal;
+  sp_str_t member;
   sp_da(gen_field_t) fields;
 } gen_endpoint_t;
 
@@ -147,6 +148,7 @@ static spry_gen_err_t gen_model_build(sp_mem_t mem, spry_gen_opts_t opts, gen_mo
       .name = name,
       .sym = sp_fmt(mem, "{}_{}", sp_fmt_str(opts.prefix), sp_fmt_str(name)).value,
       .pascal = gen_pascal(mem, name),
+      .member = gen_is_reserved(name) ? sp_fmt(mem, "{}_", sp_fmt_str(name)).value : name,
       .fields = sp_da_new(mem, gen_field_t),
     };
 
@@ -245,6 +247,25 @@ spry_gen_err_t spry_gen_c(sp_mem_t mem, spry_gen_opts_t opts, sp_io_writer_t* io
     gen_emit(&w, "static inline void {}_register_{}(spry_rpc_t* rpc, {}_fn_t fn, void* ctx) {{\n",
       sp_fmt_str(model.prefix), sp_fmt_str(ep->name), sp_fmt_str(sym));
     gen_emit(&w, "  spry_rpc_bind(rpc, sp_str_lit(\"{}\"), (spry_handler_any_t)fn, ctx, {}_thunk);\n", sp_fmt_str(ep->name), sp_fmt_str(sym));
+    gen_emit(&w, "}}\n");
+  }
+
+  if (sp_da_size(model.endpoints)) {
+    gen_emit(&w, "\n");
+    gen_emit(&w, "typedef struct {{\n");
+    sp_da_for(model.endpoints, i) {
+      const gen_endpoint_t* ep = &model.endpoints[i];
+      gen_emit(&w, "  {}_fn_t {};\n", sp_fmt_str(ep->sym), sp_fmt_str(ep->member));
+    }
+    gen_emit(&w, "}} {}_handlers_t;\n", sp_fmt_str(model.prefix));
+    gen_emit(&w, "\n");
+    gen_emit(&w, "static inline void {}_register(spry_rpc_t* rpc, {}_handlers_t handlers, void* ctx) {{\n",
+      sp_fmt_str(model.prefix), sp_fmt_str(model.prefix));
+    sp_da_for(model.endpoints, i) {
+      const gen_endpoint_t* ep = &model.endpoints[i];
+      gen_emit(&w, "  if (handlers.{}) {}_register_{}(rpc, handlers.{}, ctx);\n",
+        sp_fmt_str(ep->member), sp_fmt_str(model.prefix), sp_fmt_str(ep->name), sp_fmt_str(ep->member));
+    }
     gen_emit(&w, "}}\n");
   }
 

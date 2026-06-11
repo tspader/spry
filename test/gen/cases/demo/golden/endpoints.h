@@ -118,4 +118,20 @@ static inline void demo_register_exec(spry_rpc_t* rpc, demo_exec_fn_t fn, void* 
   spry_rpc_bind(rpc, sp_str_lit("exec"), (spry_handler_any_t)fn, ctx, demo_exec_thunk);
 }
 
+typedef struct {
+  demo_tables_fn_t tables;
+  demo_open_table_fn_t open_table;
+  demo_edit_cell_fn_t edit_cell;
+  demo_save_cell_fn_t save_cell;
+  demo_exec_fn_t exec;
+} demo_handlers_t;
+
+static inline void demo_register(spry_rpc_t* rpc, demo_handlers_t handlers, void* ctx) {
+  if (handlers.tables) demo_register_tables(rpc, handlers.tables, ctx);
+  if (handlers.open_table) demo_register_open_table(rpc, handlers.open_table, ctx);
+  if (handlers.edit_cell) demo_register_edit_cell(rpc, handlers.edit_cell, ctx);
+  if (handlers.save_cell) demo_register_save_cell(rpc, handlers.save_cell, ctx);
+  if (handlers.exec) demo_register_exec(rpc, handlers.exec, ctx);
+}
+
 #endif

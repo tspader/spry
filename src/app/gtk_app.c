@@ -17,7 +17,7 @@ static void spry_gtk_activate(GtkApplication* app, gpointer user_data) {
   const spry_gtk_opts_t* opts = ctx->opts;
 
   GtkWidget* window = gtk_application_window_new(app);
-  gtk_window_set_title(GTK_WINDOW(window), sp_str_to_cstr(ctx->mem, opts->title));
+  gtk_window_set_title(GTK_WINDOW(window), opts->title ? opts->title : "spry");
   gtk_window_set_default_size(GTK_WINDOW(window), opts->width ? (s32)opts->width : 900, opts->height ? (s32)opts->height : 700);
 
   ctx->host = wasm_host_new(ctx->mem, opts->wasm_path);

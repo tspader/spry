@@ -96,4 +96,18 @@ static inline void my_app2_register_switch(spry_rpc_t* rpc, my_app2_switch_fn_t 
   spry_rpc_bind(rpc, sp_str_lit("switch"), (spry_handler_any_t)fn, ctx, my_app2_switch_thunk);
 }
 
+typedef struct {
+  my_app2__foo_bar__baz__fn_t _foo_bar__baz_;
+  my_app2_v2_x9_fn_t v2_x9;
+  my_app2_foo2bar_fn_t foo2bar;
+  my_app2_switch_fn_t switch_;
+} my_app2_handlers_t;
+
+static inline void my_app2_register(spry_rpc_t* rpc, my_app2_handlers_t handlers, void* ctx) {
+  if (handlers._foo_bar__baz_) my_app2_register__foo_bar__baz_(rpc, handlers._foo_bar__baz_, ctx);
+  if (handlers.v2_x9) my_app2_register_v2_x9(rpc, handlers.v2_x9, ctx);
+  if (handlers.foo2bar) my_app2_register_foo2bar(rpc, handlers.foo2bar, ctx);
+  if (handlers.switch_) my_app2_register_switch(rpc, handlers.switch_, ctx);
+}
+
 #endif

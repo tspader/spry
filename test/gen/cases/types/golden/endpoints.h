@@ -45,4 +45,12 @@ static inline void test_register_scan(spry_rpc_t* rpc, test_scan_fn_t fn, void* 
   spry_rpc_bind(rpc, sp_str_lit("scan"), (spry_handler_any_t)fn, ctx, test_scan_thunk);
 }
 
+typedef struct {
+  test_scan_fn_t scan;
+} test_handlers_t;
+
+static inline void test_register(spry_rpc_t* rpc, test_handlers_t handlers, void* ctx) {
+  if (handlers.scan) test_register_scan(rpc, handlers.scan, ctx);
+}
+
 #endif

@@ -5,7 +5,7 @@
 #include "spry/rpc.h"
 
 typedef struct {
-  sp_str_t title;
+  const c8* title;
   u32 width;
   u32 height;
   sp_str_t tree;

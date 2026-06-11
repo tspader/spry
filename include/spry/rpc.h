@@ -30,20 +30,14 @@ bool         spry_rpc_check(spry_rpc_t* rpc);
 spry_reply_t spry_rpc_dispatch(spry_rpc_t* rpc, sp_str_t handler, sp_str_t body);
 spry_reply_t spry_rpc_resolver(void* rpc, sp_str_t handler, sp_str_t body);
 sp_mem_t     spry_rpc_mem(spry_rpc_t* rpc);
-
-sp_str_t spry_arg_str(const spry_args_t* args, const c8* name);
-s64      spry_arg_s64(const spry_args_t* args, const c8* name);
-f64      spry_arg_f64(const spry_args_t* args, const c8* name);
-bool     spry_arg_bool(const spry_args_t* args, const c8* name);
-
-bool spry_args_str(const spry_args_t* args, const c8* name, sp_str_t* out);
-bool spry_args_s64(const spry_args_t* args, const c8* name, s64* out);
-bool spry_args_f64(const spry_args_t* args, const c8* name, f64* out);
-bool spry_args_bool(const spry_args_t* args, const c8* name, bool* out);
+sp_mem_t     spry_request_mem(spry_rpc_t* rpc);
+spry_ui_t*   spry_ui_begin(spry_rpc_t* rpc);
 
 spry_reply_t spry_ok(sp_str_t body);
-spry_reply_t spry_ok_ui(spry_rpc_t* rpc, spry_ui_t* ui);
-spry_reply_t spry_fault(spry_rpc_t* rpc, spry_code_t code, sp_str_t message);
-spry_reply_t spry_fault_fmt(sp_mem_t mem, spry_rpc_t* rpc, spry_code_t code, const c8* fmt, ...);
+spry_reply_t spry_ok_ui(spry_ui_t* ui);
+spry_reply_t spry_fault_str(spry_rpc_t* rpc, spry_code_t code, sp_str_t message);
+spry_reply_t spry_fault_fmt(spry_rpc_t* rpc, spry_code_t code, const c8* fmt, ...);
+
+#define spry_fault(rpc, code, message) spry_fault_str(rpc, code, spry_str(message))
 
 #endif

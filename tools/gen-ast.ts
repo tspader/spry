@@ -362,7 +362,7 @@ function emitBuilders(base: string, defs: Record<string, Schema>, cfg: BuilderCf
       const sub = (props.properties ?? {})[content] ?? (props.optionalProperties ?? {})[content];
       if (sub?.type !== "string") throw new Error(`gen-ast: content prop '${content}' of '${tag}' is not a string`);
       macros.push(
-        `#define SPRY_${tag.toUpperCase()}(spry__content, ...) SPRY_UI_ELEMENT(${cName(`ui_open_${tag}`)}(spry_ui__ctx, (${declName}){ .${content} = spry_ui_str(spry__content), __VA_ARGS__ }))`,
+        `#define SPRY_${tag.toUpperCase()}(spry__content, ...) SPRY_UI_ELEMENT(${cName(`ui_open_${tag}`)}(spry_ui__ctx, (${declName}){ .${content} = spry_str(spry__content), __VA_ARGS__ }))`,
       );
     } else {
       macros.push(
@@ -410,7 +410,7 @@ function emitBuilders(base: string, defs: Record<string, Schema>, cfg: BuilderCf
       if (!sub) throw new Error(`gen-ast: invoke sugar '${name}' arg '${arg}' is not a field of '${sugar.of}'`);
       if (sub.type !== "string") continue;
       params.push(`spry__${arg}`);
-      inits.push(`.${arg} = spry_ui_str(spry__${arg})`);
+      inits.push(`.${arg} = spry_str(spry__${arg})`);
     }
     for (const [key, value] of Object.entries(sugar.preset)) {
       const sub = fields[key];

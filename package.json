@@ -10,7 +10,7 @@
   "scripts": {
     "build": "make all",
     "web": "make all && bun run example/web/server.tsx",
-    "native": "make all && mkdir -p example/db && .build/store/$(uname -m)-linux-gnu/gtk/app example/ui/tree.json example/ui/endpoints.json example/db/demo.db",
+    "native": "make all && .build/store/$(uname -m)-linux-gnu/gtk/app example/ui/tree.json example/ui/endpoints.json",
     "smoke": "make all && .build/store/test/native-smoke .build/store/test/runtime.wasm example/ui/tree.json example/ui/endpoints.json && .build/store/test/rpc-smoke example/ui/endpoints.json",
     "typecheck": "tsc --noEmit"
   },

@@ -9,6 +9,8 @@ export const SUGAR: Record<string, { of: string; preset: Record<string, string> 
 export const CONTENT: Record<string, string> = {
   text: "text",
   button: "text",
+  link: "text",
+  input: "name",
 };
 
 export const AUTO_TEXT = { kind: "text", prop: "text" };

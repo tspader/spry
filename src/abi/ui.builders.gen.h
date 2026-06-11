@@ -103,13 +103,13 @@ static inline u32 spry_ui_open_button(spry_ui_t* ui, spry_button_decl_t decl) {
 
 #define SPRY_BOX(...) SPRY_UI_ELEMENT(spry_ui_open_box(spry_ui__ctx, (spry_box_decl_t){ __VA_ARGS__ }))
 
-#define SPRY_TEXT(spry__content, ...) SPRY_UI_ELEMENT(spry_ui_open_text(spry_ui__ctx, (spry_text_decl_t){ .text = spry_ui_str(spry__content), __VA_ARGS__ }))
+#define SPRY_TEXT(spry__content, ...) SPRY_UI_ELEMENT(spry_ui_open_text(spry_ui__ctx, (spry_text_decl_t){ .text = spry_str(spry__content), __VA_ARGS__ }))
 
-#define SPRY_LINK(...) SPRY_UI_ELEMENT(spry_ui_open_link(spry_ui__ctx, (spry_link_decl_t){ __VA_ARGS__ }))
+#define SPRY_LINK(spry__content, ...) SPRY_UI_ELEMENT(spry_ui_open_link(spry_ui__ctx, (spry_link_decl_t){ .text = spry_str(spry__content), __VA_ARGS__ }))
 
-#define SPRY_INPUT(...) SPRY_UI_ELEMENT(spry_ui_open_input(spry_ui__ctx, (spry_input_decl_t){ __VA_ARGS__ }))
+#define SPRY_INPUT(spry__content, ...) SPRY_UI_ELEMENT(spry_ui_open_input(spry_ui__ctx, (spry_input_decl_t){ .name = spry_str(spry__content), __VA_ARGS__ }))
 
-#define SPRY_BUTTON(spry__content, ...) SPRY_UI_ELEMENT(spry_ui_open_button(spry_ui__ctx, (spry_button_decl_t){ .text = spry_ui_str(spry__content), __VA_ARGS__ }))
+#define SPRY_BUTTON(spry__content, ...) SPRY_UI_ELEMENT(spry_ui_open_button(spry_ui__ctx, (spry_button_decl_t){ .text = spry_str(spry__content), __VA_ARGS__ }))
 
 #define SPRY_ROW(...) SPRY_UI_ELEMENT(spry_ui_open_box(spry_ui__ctx, (spry_box_decl_t){ .direction = SPRY_DIRECTION_ROW, __VA_ARGS__ }))
 
@@ -119,6 +119,6 @@ static inline u32 spry_ui_open_button(spry_ui_t* ui, spry_button_decl_t decl) {
 
 #define SPRY_INVOKE(...) (&(const spry_interaction_t){ .kind = SPRY_INTERACTION_KIND_INVOKE, .as.invoke = { __VA_ARGS__ } })
 
-#define SPRY_PATCH(spry__handler, spry__target) SPRY_INVOKE(.handler = spry_ui_str(spry__handler), .target = spry_ui_str(spry__target), .onResponse = SPRY_ONRESPONSE_PATCH)
+#define SPRY_PATCH(spry__handler, spry__target) SPRY_INVOKE(.handler = spry_str(spry__handler), .target = spry_str(spry__target), .onResponse = SPRY_ONRESPONSE_PATCH)
 
 #endif

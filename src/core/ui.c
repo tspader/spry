@@ -49,7 +49,7 @@ void spry_ui_set_on(spry_ui_t* ui, u32 node, spry_interaction_t on) {
   }
 }
 
-void spry_ui_body_arg(spry_ui_t* ui, u32 node, sp_str_t key, sp_str_t value) {
+void spry_ui_arg_str(spry_ui_t* ui, u32 node, sp_str_t key, sp_str_t value) {
   spry_node_t* n = spry_ui_node_at(ui, node);
   spry_interaction_t* on = SP_NULLPTR;
   switch (n->kind) {
@@ -63,6 +63,26 @@ void spry_ui_body_arg(spry_ui_t* ui, u32 node, sp_str_t key, sp_str_t value) {
   if (!on->as.invoke.body) on->as.invoke.body = sp_da_new(ui->mem, spry_invoke_body_entry_t);
   spry_invoke_body_entry_t entry = { .key = key, .value = value };
   sp_da_push(on->as.invoke.body, entry);
+}
+
+void spry_ui_arg_cstr(spry_ui_t* ui, u32 node, sp_str_t key, const c8* value) {
+  spry_ui_arg_str(ui, node, key, sp_cstr_as_str(value));
+}
+
+void spry_ui_arg_s64(spry_ui_t* ui, u32 node, sp_str_t key, s64 value) {
+  spry_ui_arg_str(ui, node, key, spry_ui_fmt(ui, "{}", sp_fmt_int(value)));
+}
+
+void spry_ui_arg_u64(spry_ui_t* ui, u32 node, sp_str_t key, u64 value) {
+  spry_ui_arg_str(ui, node, key, spry_ui_fmt(ui, "{}", sp_fmt_uint(value)));
+}
+
+void spry_ui_arg_f64(spry_ui_t* ui, u32 node, sp_str_t key, f64 value) {
+  spry_ui_arg_str(ui, node, key, spry_ui_fmt(ui, "{}", sp_fmt_float(value)));
+}
+
+void spry_ui_arg_bool(spry_ui_t* ui, u32 node, sp_str_t key, bool value) {
+  spry_ui_arg_str(ui, node, key, value ? sp_str_lit("true") : sp_str_lit("false"));
 }
 
 void spry_ui_append(spry_ui_t* ui, u32 parent, u32 child) {
